@@ -146,3 +146,19 @@ it('serves an incident with no established cause as a null cause', function (): 
 
     $this->getJson(insightsUrl('incidents'))->assertOk()->assertJsonPath('incidents.0.cause', null);
 });
+
+it('is not swallowed by the dashboard SPA catch-all', function (): void {
+    anIssue();
+
+    // The dashboard serves its shell from `/{any?}` under the same prefix,
+    // excluding `api/` with a negative lookahead. This package's routes sit
+    // under `api/v2/insights`, so they survive that — and this test is here
+    // to fail loudly if the dashboard ever narrows that exclusion.
+    $response = $this->get(insightsUrl('issues'), ['Accept' => 'application/json']);
+
+    expect($response->headers->get('content-type'))->toContain('application/json')
+        ->and($response->json('issues'))->toBeArray();
+
+    // And the shell is still served for a real page under the same prefix.
+    $this->get('/'.config('telemetry-ui.path').'/p/incidents')->assertOk();
+});
