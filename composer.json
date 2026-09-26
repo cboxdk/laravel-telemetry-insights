@@ -1,0 +1,96 @@
+{
+    "name": "cboxdk/laravel-telemetry-insights",
+    "description": "Stateful insights on top of cboxdk/laravel-telemetry-ui: deduplicated issues, incident correlation across error groups, alerting and periodic digests.",
+    "keywords": [
+        "cbox",
+        "laravel",
+        "telemetry",
+        "observability",
+        "alerting",
+        "incidents",
+        "issues",
+        "root-cause"
+    ],
+    "homepage": "https://github.com/cboxdk/laravel-telemetry-insights",
+    "license": "MIT",
+    "support": {
+        "issues": "https://github.com/cboxdk/laravel-telemetry-insights/issues",
+        "source": "https://github.com/cboxdk/laravel-telemetry-insights"
+    },
+    "authors": [
+        {
+            "name": "Sylvester Damgaard",
+            "email": "sn@cbox.dk",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3|^8.4|^8.5",
+        "cboxdk/laravel-telemetry-ui": "^2.5",
+        "illuminate/contracts": "^12.0|^13.0",
+        "illuminate/database": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.14",
+        "nunomaduro/collision": "^8.8",
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^4.0",
+        "pestphp/pest-plugin-arch": "^4.0",
+        "pestphp/pest-plugin-laravel": "^4.0",
+        "phpstan/extension-installer": "^1.4",
+        "phpstan/phpstan-deprecation-rules": "^2.0",
+        "phpstan/phpstan-phpunit": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Cbox\\TelemetryInsights\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Cbox\\TelemetryInsights\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-main": "0.1.x-dev"
+        },
+        "laravel": {
+            "providers": [
+                "Cbox\\TelemetryInsights\\TelemetryInsightsServiceProvider"
+            ]
+        }
+    },
+    "scripts": {
+        "analyse": "vendor/bin/phpstan analyse --memory-limit=1G",
+        "format": "vendor/bin/pint",
+        "format:check": "vendor/bin/pint --test",
+        "test": "vendor/bin/pest",
+        "test-coverage": "vendor/bin/pest --coverage",
+        "license-check": "@php bin/check-licenses.php",
+        "sbom": "@php bin/generate-sbom.php",
+        "check": [
+            "@format:check",
+            "@analyse",
+            "@test"
+        ],
+        "qa": [
+            "@format:check",
+            "@analyse",
+            "@test",
+            "@license-check",
+            "composer audit --no-dev"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

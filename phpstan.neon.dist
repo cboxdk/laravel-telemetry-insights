@@ -1,0 +1,8 @@
+parameters:
+    paths:
+        - src
+        - tests/Fixtures
+
+    level: max
+
+    treatPhpDocTypesAsCertain: false
