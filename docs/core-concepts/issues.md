@@ -62,6 +62,16 @@ foreach ($changes as $change) {
 A backend that will not answer yields no changes rather than an exception:
 a monitoring pass must not be the thing that breaks.
 
+## Reading without remembering
+
+`record()` writes: afterwards those fingerprints are known, so they are
+never new again. Only the scan calls it.
+
+`preview()` gives the same answer without remembering it, and that is what
+the digest uses. A report that marked everything as seen would mean running
+the digest before the scan left the scan with nothing to announce — a read
+would quietly disarm the alerting.
+
 ## Acting on one
 
 ```bash

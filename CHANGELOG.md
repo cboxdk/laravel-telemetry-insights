@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 First cut. Not released.
 
+### Fixed
+
+- **A digest no longer marks everything as seen.** `DigestBuilder` folded
+  the window into the ledger as it read it, so running
+  `telemetry-insights:digest` before `:scan` left the scan with nothing new
+  to announce — a report quietly disarmed the alerting. The ledger now
+  separates `record()` (the scan, writes) from `preview()` (the digest,
+  does not).
+- **A regression fired the "new issue" rule**, announced as `New issue:`.
+  It has its own `AlertType::Regression` now: something that escaped a fix
+  is a different event from something nobody has seen.
+- **The ledger read one row at a time.** A window with a hundred error
+  groups meant a hundred SELECTs on a job that runs every few minutes; it
+  is one query now.
+- An event rule fired with only the first change in its context. It now
+  names the first and counts the rest, in one firing per pass.
+
 ### Added
 
 - **Incident correlation.** Error groups that start within the same short

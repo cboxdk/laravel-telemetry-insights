@@ -15,6 +15,7 @@ rule types that matter most watch things that already mean something.
 | Type | Fires when |
 | --- | --- |
 | `new_issue` | A fingerprint nobody has seen starts firing |
+| `regression` | A resolved issue starts firing again |
 | `incident` | The correlator opened an incident |
 | `issue_spike` | A known issue's rate jumps against the window before |
 | `error_rate` | Share of requests answering 5xx, in % |
@@ -27,9 +28,11 @@ rule types that matter most watch things that already mean something.
 **Measurement rules** are evaluated on a schedule by
 `telemetry-insights:alerts`: measure, compare, fire.
 
-**Event rules** (`new_issue`, `incident`, `issue_spike`) have nothing to
-measure on a schedule. They fire from `telemetry-insights:scan` when the
-event happens.
+**Event rules** (`new_issue`, `regression`, `incident`, `issue_spike`) have
+nothing to measure on a schedule. They fire from `telemetry-insights:scan`
+when the event happens, once per pass — naming the first and counting the
+rest, because a rule exists so someone hears once, not once per
+fingerprint.
 
 For `issue_spike` the rule's `threshold` is a **multiplier**, not a count:
 

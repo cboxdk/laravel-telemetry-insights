@@ -18,6 +18,9 @@ enum AlertType: string
     /** A fingerprint nobody has seen before starts firing. */
     case NewIssue = 'new_issue';
 
+    /** A resolved issue starts firing again. */
+    case Regression = 'regression';
+
     /** A known issue's rate jumps against its own recent baseline. */
     case IssueSpike = 'issue_spike';
 
@@ -40,6 +43,7 @@ enum AlertType: string
     {
         return match ($this) {
             self::NewIssue => 'New issue',
+            self::Regression => 'Regression',
             self::IssueSpike => 'Issue spike',
             self::Incident => 'Incident opened',
             self::ErrorRate => 'Error rate',
@@ -65,6 +69,6 @@ enum AlertType: string
      */
     public function isEvent(): bool
     {
-        return in_array($this, [self::NewIssue, self::Incident], true);
+        return in_array($this, [self::NewIssue, self::Regression, self::Incident], true);
     }
 }

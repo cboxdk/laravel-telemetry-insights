@@ -35,6 +35,9 @@ use Illuminate\Support\Carbon;
  */
 class Scanner
 {
+    /** @var list<AlertRule> Resolved once per pass, used twice. */
+    private array $spikeRules = [];
+
     public function __construct(
         private readonly IssueLedger $ledger,
         private readonly CorrelatesIncidents $correlator,
@@ -97,6 +100,8 @@ class Scanner
             return [];
         }
 
+        $this->spikeRules = $rules;
+
         $counts = [];
         $types = [];
 
@@ -131,7 +136,7 @@ class Scanner
 
         $worst = $spikes[0];
 
-        foreach ($this->rules(AlertType::IssueSpike) as $rule) {
+        foreach ($this->spikeRules as $rule) {
             $this->alerts->fire($rule, $worst->summary(), [
                 'fingerprint' => $worst->fingerprint,
                 'count' => $worst->count,
@@ -190,7 +195,12 @@ class Scanner
             $sent++;
         }
 
-        $this->fireEventRules(AlertType::NewIssue, $changes[0] ?? null);
+        // A regression is its own alert type: it escaped a fix, which is a
+        // different thing from something nobody has seen before.
+        $this->fireEventRules(
+            $kind === ChangeKind::Regression ? AlertType::Regression : AlertType::NewIssue,
+            $changes,
+        );
 
         return $sent;
     }
@@ -237,16 +247,28 @@ class Scanner
     /**
      * Event-shaped rules fire from the thing happening, not from a
      * measurement — the evaluator has nothing to measure for them.
+     *
+     * One firing per pass, naming the first and counting the rest: a rule
+     * exists so someone hears once, not once per fingerprint.
+     *
+     * @param  list<IssueChange>  $changes
      */
-    private function fireEventRules(AlertType $type, ?IssueChange $change): void
+    private function fireEventRules(AlertType $type, array $changes): void
     {
-        if ($change === null) {
+        if ($changes === []) {
             return;
         }
 
+        $first = $changes[0];
+        $others = count($changes) - 1;
+
+        $summary = $type->label().': '.($first->issue->type ?? 'Exception')
+            .($others > 0 ? ' (and '.$others.' other'.($others === 1 ? '' : 's').')' : '');
+
         foreach ($this->rules($type) as $rule) {
-            $this->alerts->fire($rule, 'New issue: '.($change->issue->type ?? 'Exception'), [
-                'fingerprint' => $change->issue->fingerprint,
+            $this->alerts->fire($rule, $summary, [
+                'fingerprint' => $first->issue->fingerprint,
+                'count' => count($changes),
             ]);
         }
     }

@@ -94,7 +94,10 @@ class DigestBuilder
     {
         $findings = [];
 
-        foreach ($this->ledger->record($scope) as $change) {
+        // preview(), not record(): a digest is a read, and marking every
+        // fingerprint as seen here would leave the next scan with nothing
+        // to announce.
+        foreach ($this->ledger->preview($scope) as $change) {
             if (! $change->kind->isNews()) {
                 continue;
             }

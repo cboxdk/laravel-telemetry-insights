@@ -32,7 +32,7 @@ class RuleMeasurer
             AlertType::Throughput => $this->throughput($rule),
             AlertType::Metric => $this->metric($rule),
             // Event-shaped rules are fired by the scan, not measured here.
-            AlertType::NewIssue, AlertType::IssueSpike, AlertType::Incident => Measurement::unavailable(
+            AlertType::NewIssue, AlertType::Regression, AlertType::IssueSpike, AlertType::Incident => Measurement::unavailable(
                 'This rule fires on an event, not a measurement.',
             ),
         };
