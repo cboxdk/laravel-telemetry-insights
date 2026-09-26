@@ -64,6 +64,7 @@ read-only as it was.
   [hand findings to an assistant](cookbook/assistant-brief.md)
 - Extension points:
   [notification channels](extension-points/channels.md) ·
-  [your own correlation](extension-points/correlation.md)
+  [your own correlation](extension-points/correlation.md) ·
+  [HTTP API](extension-points/http-api.md)
 - [Configuration reference](configuration/reference.md)
 - [What this package stores](security/data.md)

@@ -24,7 +24,9 @@ digests. The dashboard reads; this remembers.
 - `Notify/` — `Notification` VO, channels behind `NotifiesChannel`.
 - `Scan/` — the pass that ties ledger + correlation + announcements together.
 - `Ui/` — the ONLY place allowed to touch the dashboard's presentation
-  layer. Everything here registers behind a check.
+  layer: the two read-only panels and the write API (`Ui/Http/` +
+  routes/web.php, mounted inside the dashboard's route group so its gate
+  and throttle apply). Everything here registers behind a check.
 - `Support/Setting` — typed config reads; never cast `config()` inline.
 
 ## Hard rules

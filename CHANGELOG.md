@@ -51,6 +51,12 @@ First cut. Not released.
   never throw, so a dead pager cannot take down the pass that found the
   problem. A digest's Markdown brief rides along to the channels with room
   for it.
+- **HTTP API.** `GET`/`POST` for issues and incidents under
+  `{path}/api/v2/insights`, mounted inside the dashboard's own route group
+  so its gate, middleware and throttle apply unchanged. Reading takes
+  `viewTelemetryUi`; every write takes the separate `manageTelemetryUi`,
+  checked in the controller. There so a host can build the screen this
+  package does not ship.
 - **Dashboard pages.** Incidents and Issues tables, registered into
   `cboxdk/laravel-telemetry-ui` when it is served. Everything that knows the
   dashboard's UI exists is confined to `src/Ui/`, enforced by an

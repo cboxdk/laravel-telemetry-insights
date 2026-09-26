@@ -59,6 +59,8 @@ failing.
 - **A brief for your assistant** — `--markdown` prints the findings as one
   self-contained document, ready to paste in with the repository open.
 - **Slack, webhook or your own channel** — one method to implement, no SDK.
+- **An API for your own screen** — read and change issues and incidents
+  over HTTP, behind the dashboard's own gate.
 - **Inert when idle** — boot registers class-strings only; one env var
   disables it entirely.
 
@@ -103,7 +105,8 @@ Full documentation lives in [`docs/`](docs/index.md):
 - Cookbook: [notify Slack](docs/cookbook/slack.md) ·
   [hand findings to an assistant](docs/cookbook/assistant-brief.md)
 - Extending: [notification channels](docs/extension-points/channels.md) ·
-  [your own correlation](docs/extension-points/correlation.md)
+  [your own correlation](docs/extension-points/correlation.md) ·
+  [HTTP API](docs/extension-points/http-api.md)
 - [Configuration reference](docs/configuration/reference.md) ·
   [what this package stores](docs/security/data.md) ·
   [testing](docs/getting-started/testing.md)

@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Cbox\TelemetryInsights\Ui;
 
 use Cbox\TelemetryUi\Facades\TelemetryUi;
+use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\TelemetryUiManager;
+use Illuminate\Support\Facades\Route;
 
 /**
  * The soft half of the add-on.
@@ -33,6 +35,34 @@ final class InsightsPages
 
         TelemetryUi::page('issues', 'Issues', group: 'Insights', icon: 'bug');
         TelemetryUi::panel(Panels\IssuesTable::class, page: 'issues');
+
+        self::routes();
+    }
+
+    /**
+     * Mount the write API beside the dashboard's own, under its path,
+     * middleware and throttle — so the same gate that guards the dashboard
+     * guards these, and a host never has to wire authorization twice.
+     */
+    private static function routes(): void
+    {
+        if (Route::has('telemetry-insights.api.issues')) {
+            return;
+        }
+
+        $middleware = [...(array) config('telemetry-ui.middleware', ['web']), Authorize::class];
+        $throttle = config('telemetry-ui.throttle');
+
+        if (is_string($throttle) && $throttle !== '') {
+            $middleware[] = 'throttle:'.$throttle;
+        }
+
+        Route::group([
+            'prefix' => config('telemetry-ui.path', 'telemetry-ui'),
+            'middleware' => $middleware,
+        ], static function (): void {
+            require __DIR__.'/../../routes/web.php';
+        });
     }
 
     /**

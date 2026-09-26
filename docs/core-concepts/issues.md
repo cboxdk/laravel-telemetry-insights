@@ -90,7 +90,7 @@ app(IssueActions::class)->resolve($issue, by: $user->name, release: 'v2.4.1');
 
 The dashboard pages this package adds are **read-only** lists. Changing an
 issue's status is the command, the service, or a screen of your own built
-on top of it.
+on the [HTTP API](../extension-points/http-api.md).
 
 ## Spikes
 

@@ -8,12 +8,24 @@ use Cbox\TelemetryInsights\TelemetryInsightsServiceProvider;
 use Cbox\TelemetryInsights\Testing\InteractsWithInsights;
 use Cbox\TelemetryUi\TelemetryUiServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Gate;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
     use InteractsWithInsights;
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The dashboard's gate guards these routes too. Laravel only calls a
+        // gate for a guest when it says it accepts one, and v2 passes the
+        // page as a second argument.
+        Gate::define('viewTelemetryUi', static fn (?object $user = null, ?string $page = null): bool => true);
+        Gate::define('manageTelemetryUi', static fn (?object $user = null): bool => true);
+    }
 
     /**
      * @return list<class-string>
