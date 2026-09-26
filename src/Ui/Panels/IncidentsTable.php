@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryInsights\Ui\Panels;
 
 use Cbox\TelemetryInsights\Correlate\Confidence;
+use Cbox\TelemetryInsights\Issues\IncidentStatus;
 use Cbox\TelemetryInsights\Models\Incident;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
@@ -16,6 +17,8 @@ use Cbox\TelemetryUi\Panels\Ui;
  * Reads the package's own table rather than re-running correlation: the
  * dashboard should render in milliseconds, and a page load is not the place
  * to fetch twenty traces.
+ *
+ * @phpstan-import-type Action from Ui
  */
 class IncidentsTable extends Panel
 {
@@ -61,6 +64,7 @@ class IncidentsTable extends Panel
                 'occurrences' => Ui::cell($incident->occurrences),
                 'status' => Ui::cell($incident->status->label(), [
                     'tone' => $incident->status->value === 'open' ? 'danger' : 'dim',
+                    'actions' => self::actions($incident),
                 ]),
             ];
         }
@@ -78,5 +82,25 @@ class IncidentsTable extends Panel
             $rows,
             ['empty' => 'No incidents recorded yet. They appear when several error groups start together.'],
         );
+    }
+
+    /**
+     * Acknowledging is the point of persisting an incident: it is how a
+     * team says someone is on this, without muting the errors underneath.
+     *
+     * @return list<Action>
+     */
+    private static function actions(Incident $incident): array
+    {
+        $endpoint = 'insights/incidents/'.$incident->signature;
+
+        return match ($incident->status) {
+            IncidentStatus::Open => [
+                Ui::action('Acknowledge', $endpoint, ['action' => 'acknowledge']),
+                Ui::action('Resolve', $endpoint, ['action' => 'resolve']),
+            ],
+            IncidentStatus::Acknowledged => [Ui::action('Resolve', $endpoint, ['action' => 'resolve'])],
+            IncidentStatus::Resolved => [Ui::action('Reopen', $endpoint, ['action' => 'reopen'])],
+        };
     }
 }

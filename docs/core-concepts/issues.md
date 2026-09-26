@@ -88,9 +88,11 @@ use Cbox\TelemetryInsights\Issues\IssueActions;
 app(IssueActions::class)->resolve($issue, by: $user->name, release: 'v2.4.1');
 ```
 
-The dashboard pages this package adds are **read-only** lists. Changing an
-issue's status is the command, the service, or a screen of your own built
-on the [HTTP API](../extension-points/http-api.md).
+The dashboard pages carry the same decisions as a menu on the status cell,
+so you can resolve an issue where you read it. They are offers: the
+endpoint still checks `manageTelemetryUi`, so a viewer who can see an issue
+cannot close it. Build your own screen on the
+[HTTP API](../extension-points/http-api.md) when you want more.
 
 ## Spikes
 

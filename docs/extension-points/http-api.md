@@ -6,8 +6,9 @@ weight: 43
 
 # HTTP API
 
-The pages this package adds to the dashboard are read-only lists. When you
-want buttons, build the screen in your own app and point it here.
+The dashboard pages this package adds already carry the common decisions
+as a row menu. This is the same surface, for when you want your own screen
+— or something the menu does not offer, like assigning an owner.
 
 Everything is mounted beside the dashboard's own API, under its path,
 middleware and throttle — so the gate that guards the dashboard guards

@@ -59,8 +59,9 @@ failing.
 - **A brief for your assistant** — `--markdown` prints the findings as one
   self-contained document, ready to paste in with the repository open.
 - **Slack, webhook or your own channel** — one method to implement, no SDK.
-- **An API for your own screen** — read and change issues and incidents
-  over HTTP, behind the dashboard's own gate.
+- **Act where you read** — resolve, snooze, ignore or acknowledge from a
+  menu on the dashboard row, or over HTTP from your own screen. Both behind
+  the dashboard's own gate.
 - **Inert when idle** — boot registers class-strings only; one env var
   disables it entirely.
 

@@ -107,3 +107,74 @@ it('says what to do when nothing has been recorded yet', function (): void {
     expect(render(IssuesTable::class)['empty'])->toContain('telemetry-insights:scan')
         ->and(render(IncidentsTable::class)['rows'])->toBe([]);
 });
+
+it('offers the decisions on the status cell, and only the ones that apply', function (): void {
+    Issue::create([
+        'fingerprint' => 'open00000001',
+        'status' => IssueStatus::Open,
+        'type' => 'RedisException',
+        'last_seen_at' => Carbon::now(),
+    ]);
+
+    $actions = render(IssuesTable::class)['rows'][0]['status']['actions'];
+    $labels = array_column($actions, 'label');
+
+    expect($labels)->toBe(['Resolve', 'Snooze for a day', 'Ignore'])
+        ->and($actions[0]['endpoint'])->toBe('insights/issues/open00000001')
+        ->and($actions[0]['body'])->toBe(['action' => 'resolve'])
+        // Ignoring is forever, so it asks first and reads as destructive.
+        ->and($actions[2]['confirm'])->toContain('for good')
+        ->and($actions[2]['tone'])->toBe('danger');
+});
+
+it('offers only reopen once an issue is settled', function (): void {
+    Issue::create([
+        'fingerprint' => 'done00000001',
+        'status' => IssueStatus::Resolved,
+        'type' => 'RedisException',
+        'last_seen_at' => Carbon::now(),
+    ]);
+
+    expect(array_column(render(IssuesTable::class)['rows'][0]['status']['actions'], 'label'))
+        ->toBe(['Reopen']);
+});
+
+it('offers acknowledge before resolve on an open incident, and drops it after', function (): void {
+    $incident = Incident::create([
+        'signature' => 'abc123',
+        'status' => IncidentStatus::Open,
+        'title' => 'redis cache-1:6379 — 9 error groups affected',
+        'onset_at' => Carbon::now()->subHour(),
+        'occurrences' => 412,
+        'group_count' => 9,
+        'fingerprints' => [],
+        'services' => [],
+    ]);
+
+    expect(array_column(render(IncidentsTable::class)['rows'][0]['status']['actions'], 'label'))
+        ->toBe(['Acknowledge', 'Resolve']);
+
+    $incident->forceFill(['status' => IncidentStatus::Acknowledged])->save();
+
+    expect(array_column(render(IncidentsTable::class)['rows'][0]['status']['actions'], 'label'))
+        ->toBe(['Resolve']);
+});
+
+it('points every action at this dashboard, never at another host', function (): void {
+    Issue::create(['fingerprint' => 'open00000001', 'status' => IssueStatus::Open, 'last_seen_at' => Carbon::now()]);
+    Incident::create([
+        'signature' => 'abc123', 'status' => IncidentStatus::Open, 'title' => 't',
+        'onset_at' => Carbon::now(), 'occurrences' => 1, 'group_count' => 3,
+        'fingerprints' => [], 'services' => [],
+    ]);
+
+    $endpoints = [
+        ...array_column(render(IssuesTable::class)['rows'][0]['status']['actions'], 'endpoint'),
+        ...array_column(render(IncidentsTable::class)['rows'][0]['status']['actions'], 'endpoint'),
+    ];
+
+    foreach ($endpoints as $endpoint) {
+        expect($endpoint)->toStartWith('insights/')
+            ->not->toContain('://');
+    }
+});

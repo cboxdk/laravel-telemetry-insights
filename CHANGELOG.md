@@ -57,6 +57,12 @@ First cut. Not released.
   `viewTelemetryUi`; every write takes the separate `manageTelemetryUi`,
   checked in the controller. There so a host can build the screen this
   package does not ship.
+- **Row actions on the dashboard pages.** Resolve, snooze or ignore an
+  issue, acknowledge or resolve an incident, from a menu on the row —
+  offered by the payload, authorized by the endpoint, so a viewer who can
+  see an issue still cannot close it. Only the actions that apply to the
+  current status are offered. Needs `cboxdk/laravel-telemetry-ui` ^2.6,
+  which added `Ui::action()`.
 - **Dashboard pages.** Incidents and Issues tables, registered into
   `cboxdk/laravel-telemetry-ui` when it is served. Everything that knows the
   dashboard's UI exists is confined to `src/Ui/`, enforced by an
