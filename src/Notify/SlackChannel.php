@@ -83,6 +83,16 @@ final readonly class SlackChannel implements NotifiesChannel
             $blocks[] = ['type' => 'section', 'fields' => $fields];
         }
 
+        // Slack caps a text block around 3000 characters, and a digest brief
+        // is easily longer; enough of it to be useful, with the rest a
+        // command away.
+        if ($notification->brief !== null) {
+            $blocks[] = [
+                'type' => 'section',
+                'text' => ['type' => 'mrkdwn', 'text' => "```\n".mb_substr($notification->brief, 0, 2500)."\n```"],
+            ];
+        }
+
         if ($notification->url !== null) {
             $blocks[] = [
                 'type' => 'actions',

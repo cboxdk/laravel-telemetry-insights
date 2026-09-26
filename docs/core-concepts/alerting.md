@@ -16,7 +16,7 @@ rule types that matter most watch things that already mean something.
 | --- | --- |
 | `new_issue` | A fingerprint nobody has seen starts firing |
 | `incident` | The correlator opened an incident |
-| `issue_spike` | A known issue's rate jumps |
+| `issue_spike` | A known issue's rate jumps against the window before |
 | `error_rate` | Share of requests answering 5xx, in % |
 | `latency_p95` | Request p95, in ms |
 | `throughput` | Requests per minute |
@@ -27,8 +27,25 @@ rule types that matter most watch things that already mean something.
 **Measurement rules** are evaluated on a schedule by
 `telemetry-insights:alerts`: measure, compare, fire.
 
-**Event rules** (`new_issue`, `incident`) have nothing to measure. They fire
-from `telemetry-insights:scan` when the event happens.
+**Event rules** (`new_issue`, `incident`, `issue_spike`) have nothing to
+measure on a schedule. They fire from `telemetry-insights:scan` when the
+event happens.
+
+For `issue_spike` the rule's `threshold` is a **multiplier**, not a count:
+
+```php
+AlertRule::create([
+    'name' => 'Something is spiking',
+    'type' => AlertType::IssueSpike,
+    'threshold' => 3.0,   // three times the previous window
+    'window_minutes' => 15,
+    'cooldown_minutes' => 30,
+]);
+```
+
+The rule fires once per pass with the worst offender in its summary and the
+number of spiking issues in its context — not once per issue, which would
+be the noise it exists to prevent.
 
 ## Three separate decisions
 

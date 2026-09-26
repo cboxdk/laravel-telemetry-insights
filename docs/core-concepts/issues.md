@@ -62,7 +62,47 @@ foreach ($changes as $change) {
 A backend that will not answer yields no changes rather than an exception:
 a monitoring pass must not be the thing that breaks.
 
-## Proving a regression
+## Acting on one
 
-Set `resolved_in_release` when you resolve an issue and the release rides
-along into the digest, so a regression says which fix it escaped.
+```bash
+php artisan telemetry-insights:issues                       # the working list
+php artisan telemetry-insights:issue resolve aaaa0000 --release=v2.4.1
+php artisan telemetry-insights:issue snooze  aaaa0000 --until="3 days"
+php artisan telemetry-insights:issue ignore  aaaa0000
+php artisan telemetry-insights:issue assign  aaaa0000 --to=sylvester
+php artisan telemetry-insights:issue reopen  aaaa0000
+```
+
+A unique prefix of the fingerprint is enough; an ambiguous one is refused
+rather than guessed at.
+
+Resolving is what makes regression detection mean anything — until a group
+has been called fixed, it can never come back. Record the release the fix
+shipped in and a later occurrence says which fix it escaped.
+
+From your own code the same actions are one service:
+
+```php
+use Cbox\TelemetryInsights\Issues\IssueActions;
+
+app(IssueActions::class)->resolve($issue, by: $user->name, release: 'v2.4.1');
+```
+
+The dashboard pages this package adds are **read-only** lists. Changing an
+issue's status is the command, the service, or a screen of your own built
+on top of it.
+
+## Spikes
+
+A known issue firing materially harder than in the window immediately
+before it — not against a long-run average, because a rate that doubled in
+the last ten minutes is the thing worth interrupting someone for, while one
+creeping up all month belongs in the digest.
+
+Two guards keep it honest: an issue must reach five occurrences before a
+multiple means anything (one becoming three is not a 3× spike), and a
+fingerprint with no baseline is a *new* issue, which is already its own
+announcement.
+
+Detecting a spike costs one extra read, so it only happens when a rule is
+actually watching for one. See [alerting](alerting.md).

@@ -37,6 +37,7 @@ final readonly class WebhookChannel implements NotifiesChannel
                     'severity' => $notification->severity->value,
                     'facts' => $notification->facts,
                     'url' => $notification->url,
+                    'brief' => $notification->brief,
                 ])
                 ->successful();
         } catch (Throwable $e) {

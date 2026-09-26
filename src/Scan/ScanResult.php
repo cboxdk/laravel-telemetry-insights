@@ -12,16 +12,18 @@ final readonly class ScanResult
         public int $newIssues = 0,
         public int $regressions = 0,
         public int $incidents = 0,
+        public int $spikes = 0,
         public int $announced = 0,
     ) {}
 
     public function summary(): string
     {
         return sprintf(
-            '%d issue(s) seen · %d new · %d regressed · %d incident(s) · %d announced',
+            '%d issue(s) seen · %d new · %d regressed · %d spiking · %d incident(s) · %d announced',
             $this->issuesSeen,
             $this->newIssues,
             $this->regressions,
+            $this->spikes,
             $this->incidents,
             $this->announced,
         );

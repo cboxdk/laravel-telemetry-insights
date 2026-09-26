@@ -12,6 +12,8 @@ use Cbox\TelemetryInsights\Issues\ChangeKind;
 use Cbox\TelemetryInsights\Issues\IncidentRecorder;
 use Cbox\TelemetryInsights\Issues\IssueChange;
 use Cbox\TelemetryInsights\Issues\IssueLedger;
+use Cbox\TelemetryInsights\Issues\Spike;
+use Cbox\TelemetryInsights\Issues\SpikeDetector;
 use Cbox\TelemetryInsights\Models\AlertRule;
 use Cbox\TelemetryInsights\Notify\Notification;
 use Cbox\TelemetryInsights\Notify\Notifier;
@@ -38,6 +40,7 @@ class Scanner
         private readonly CorrelatesIncidents $correlator,
         private readonly IncidentRecorder $recorder,
         private readonly Notifier $notifier,
+        private readonly SpikeDetector $spikes,
         private readonly AlertEvaluator $alerts,
         private readonly Config $config,
     ) {}
@@ -64,13 +67,80 @@ class Scanner
         $announced += $this->announceIssues($regressions, ChangeKind::Regression);
         $announced += $this->announceIncidents($incidents);
 
+        $spikes = $this->spikes($scope, $changes);
+        $announced += $this->announceSpikes($spikes);
+
         return new ScanResult(
             issuesSeen: count($changes),
             newIssues: count($new),
             regressions: count($regressions),
             incidents: count($incidents),
+            spikes: count($spikes),
             announced: $announced,
         );
+    }
+
+    /**
+     * Known issues firing materially harder than in the window before.
+     *
+     * Costs an extra read, so it only happens when a rule is watching for
+     * one — a spike nobody asked about is not worth the query.
+     *
+     * @param  list<IssueChange>  $changes
+     * @return list<Spike>
+     */
+    private function spikes(RequestScope $scope, array $changes): array
+    {
+        $rules = $this->rules(AlertType::IssueSpike);
+
+        if ($rules === []) {
+            return [];
+        }
+
+        $counts = [];
+        $types = [];
+
+        foreach ($changes as $change) {
+            // A brand new issue has no baseline to spike against; it is
+            // already announced as new.
+            if ($change->kind === ChangeKind::New) {
+                continue;
+            }
+
+            $counts[$change->issue->fingerprint] = $change->count;
+            $types[$change->issue->fingerprint] = $change->issue->type ?? 'Exception';
+        }
+
+        if ($counts === []) {
+            return [];
+        }
+
+        $multiplier = max(1.5, (float) ($rules[0]->threshold ?? 3.0));
+
+        return $this->spikes->against($scope, $counts, $multiplier, $types);
+    }
+
+    /**
+     * @param  list<Spike>  $spikes
+     */
+    private function announceSpikes(array $spikes): int
+    {
+        if ($spikes === []) {
+            return 0;
+        }
+
+        $worst = $spikes[0];
+
+        foreach ($this->rules(AlertType::IssueSpike) as $rule) {
+            $this->alerts->fire($rule, $worst->summary(), [
+                'fingerprint' => $worst->fingerprint,
+                'count' => $worst->count,
+                'baseline' => $worst->baseline,
+                'spiking' => count($spikes),
+            ], $worst->multiplier);
+        }
+
+        return count($spikes);
     }
 
     /**

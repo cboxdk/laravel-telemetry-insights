@@ -35,10 +35,22 @@ First cut. Not released.
   hundreds of times — each with the attributes that identify it.
   `--markdown` prints them as one self-contained brief to hand to a coding
   assistant.
+- **Issue actions.** Resolve, reopen, ignore, snooze and assign, as a
+  service and as `telemetry-insights:issue` (a unique fingerprint prefix is
+  enough; an ambiguous one is refused). Without these, regression detection
+  was unreachable: nothing could be resolved, so nothing could come back.
+  `telemetry-insights:issues` lists the working list.
+- **Spike detection.** A known issue firing several times harder than in
+  the window immediately before it, with an occurrence floor so small
+  numbers cannot produce a large multiple, and no spike for a fingerprint
+  with no baseline (that is a new issue). Costs an extra read, so it only
+  runs when a rule is watching. An unreadable baseline yields no spike
+  rather than an infinite one.
 - **Notifications.** Log, Slack (Block Kit over an incoming webhook) and
   generic webhook channels behind a `NotifiesChannel` contract; channels
   never throw, so a dead pager cannot take down the pass that found the
-  problem.
+  problem. A digest's Markdown brief rides along to the channels with room
+  for it.
 - **Dashboard pages.** Incidents and Issues tables, registered into
   `cboxdk/laravel-telemetry-ui` when it is served. Everything that knows the
   dashboard's UI exists is confined to `src/Ui/`, enforced by an

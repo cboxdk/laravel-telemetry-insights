@@ -47,6 +47,16 @@ Add `--markdown` to get the same thing as a brief that stands on its own,
 ready to paste into an assistant that has the codebase open. See
 [hand findings to an assistant](cookbook/assistant-brief.md).
 
+## Work the list
+
+```bash
+php artisan telemetry-insights:issues
+php artisan telemetry-insights:issue resolve aaaa0000 --release=v2.4.1
+```
+
+Resolving matters more than it looks: until something has been called
+fixed, it can never be reported as a regression.
+
 ## Let it run
 
 The three jobs register themselves on your scheduler with sensible crons, so
@@ -58,6 +68,8 @@ The three jobs register themselves on your scheduler with sensible crons, so
 | `telemetry-insights:scan` | every 5 min | Ledger, correlation, announcements |
 | `telemetry-insights:alerts` | every 5 min | Evaluate measurement rules |
 | `telemetry-insights:digest` | Mondays 08:00 | The weekly findings |
+
+`telemetry-insights:issues` and `telemetry-insights:issue` are on demand.
 
 ## Add an alert
 

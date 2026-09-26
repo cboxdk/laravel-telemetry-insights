@@ -6,6 +6,8 @@ namespace Cbox\TelemetryInsights;
 
 use Cbox\TelemetryInsights\Console\AlertsCommand;
 use Cbox\TelemetryInsights\Console\DigestCommand;
+use Cbox\TelemetryInsights\Console\IssueCommand;
+use Cbox\TelemetryInsights\Console\IssuesCommand;
 use Cbox\TelemetryInsights\Console\ScanCommand;
 use Cbox\TelemetryInsights\Contracts\CorrelatesIncidents;
 use Cbox\TelemetryInsights\Correlate\IncidentCorrelator;
@@ -46,7 +48,13 @@ class TelemetryInsightsServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
 
         if ($this->app->runningInConsole()) {
-            $this->commands([ScanCommand::class, AlertsCommand::class, DigestCommand::class]);
+            $this->commands([
+                ScanCommand::class,
+                AlertsCommand::class,
+                DigestCommand::class,
+                IssuesCommand::class,
+                IssueCommand::class,
+            ]);
             $this->scheduleJobs();
         }
 

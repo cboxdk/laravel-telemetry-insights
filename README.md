@@ -41,8 +41,12 @@ failing.
 ## Highlights
 
 - **Issue ledger** — every error group plus the decision your team made:
-  open, resolved, ignored, snoozed. A resolved group that fires again is a
-  **regression**, detected automatically and reopened.
+  open, resolved, ignored, snoozed, set from one artisan command or your
+  own code. A resolved group that fires again is a **regression**, detected
+  automatically and reopened.
+- **Spike detection** — a known issue firing several times harder than in
+  the window before, with guards so small numbers and brand-new issues do
+  not masquerade as one.
 - **Incident correlation** — errors that started together, folded into one
   event with a named cause, ranked evidence and a confidence you can check.
 - **Alerting that means something** — rules on new issues and incidents, not
