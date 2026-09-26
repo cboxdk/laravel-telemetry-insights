@@ -61,8 +61,8 @@ First cut. Not released.
   issue, acknowledge or resolve an incident, from a menu on the row —
   offered by the payload, authorized by the endpoint, so a viewer who can
   see an issue still cannot close it. Only the actions that apply to the
-  current status are offered. Needs `cboxdk/laravel-telemetry-ui` ^2.6,
-  which added `Ui::action()`.
+  current status are offered. Needs `cboxdk/laravel-telemetry-ui` ^2.6.1,
+  which added `Ui::action()` and made its menu visible.
 - **Dashboard pages.** Incidents and Issues tables, registered into
   `cboxdk/laravel-telemetry-ui` when it is served. Everything that knows the
   dashboard's UI exists is confined to `src/Ui/`, enforced by an
