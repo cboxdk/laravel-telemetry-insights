@@ -49,6 +49,9 @@ failing.
   not masquerade as one.
 - **Incident correlation** — errors that started together, folded into one
   event with a named cause, ranked evidence and a confidence you can check.
+  When the dashboard has discovered an exporter watching the failing
+  dependency, the incident asks it too: not just "your calls failed" but
+  "and the cache says it was out of memory".
 - **Alerting that means something** — rules on new issues and incidents, not
   only on numbers; with error rate, p95, throughput and any metric as the
   escape hatch. Cooldowns so one broken thing pages you once, and an

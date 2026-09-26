@@ -169,7 +169,7 @@ final readonly class IncidentCorrelator implements CorrelatesIncidents
     {
         $best = null;
 
-        foreach ([$this->sharedDependency($burst), $this->recentChange($scope, $onsetNano), $this->hostPressure($scope, $onsetNano)] as $candidate) {
+        foreach ([$this->sharedDependency($burst, $onsetNano), $this->recentChange($scope, $onsetNano), $this->hostPressure($scope, $onsetNano)] as $candidate) {
             if ($candidate !== null && $candidate->beats($best)) {
                 $best = $candidate;
             }
@@ -186,7 +186,7 @@ final readonly class IncidentCorrelator implements CorrelatesIncidents
      *
      * @param  list<AffectedGroup>  $burst
      */
-    private function sharedDependency(array $burst): ?SuspectedCause
+    private function sharedDependency(array $burst, int $onsetNano): ?SuspectedCause
     {
         $probes = array_slice($burst, 0, $this->int('max_trace_probes', 20));
 
@@ -247,13 +247,23 @@ final readonly class IncidentCorrelator implements CorrelatesIncidents
 
         $percent = (int) round($bestShare * 100);
 
+        $evidence = $percent.'% of the affected groups called this '
+            .$best['signature']->kind->label().', and the call failed in '
+            .$best['failed'].' of '.$inspected.' traces inspected.';
+
+        // Ask the dependency's own exporter what it was doing. "Your calls
+        // failed" is where most tools stop; "the node was at 98% of its
+        // memory limit, evicting 4.2k keys a second" is what ends the
+        // incident.
+        $health = $this->dependencyHealth($best['signature']->target, $onsetNano);
+
         return new SuspectedCause(
             kind: CauseKind::Dependency,
             label: $best['signature']->label(),
-            evidence: $percent.'% of the affected groups called this '
-                .$best['signature']->kind->label().', and the call failed in '
-                .$best['failed'].' of '.$inspected.' traces inspected.',
-            confidence: $bestShare >= 0.9 ? Confidence::High : Confidence::Medium,
+            evidence: $health === null ? $evidence : $evidence.' '.$health,
+            // Its own exporter agreeing that it was unhealthy is the
+            // strongest corroboration available.
+            confidence: $health !== null || $bestShare >= 0.9 ? Confidence::High : Confidence::Medium,
             traceId: $best['traceId'],
         );
     }
@@ -335,6 +345,47 @@ final readonly class IncidentCorrelator implements CorrelatesIncidents
         }
 
         return null;
+    }
+
+    /**
+     * What the dependency's own exporter says about it around the onset,
+     * when discovery has tied one to this address. Only signals materially
+     * outside their normal band are reported — a cache at its usual memory
+     * is not evidence of anything.
+     */
+    private function dependencyHealth(string $target, int $onsetNano): ?string
+    {
+        if ($target === '') {
+            return null;
+        }
+
+        $onset = intdiv($onsetNano, 1_000_000_000);
+        $pad = $this->int('signal_pad_seconds', 300);
+
+        try {
+            $summaries = $this->signals->discovered(
+                [$target],
+                new DateTimeImmutable('@'.($onset - $pad)),
+                new DateTimeImmutable('@'.($onset + $pad)),
+            );
+        } catch (SourceException) {
+            return null;
+        }
+
+        $unusual = [];
+
+        foreach ($summaries as $summary) {
+            if ($summary->isOutlier()) {
+                $unusual[] = strtolower($summary->label).' was '.round($summary->current, 2)
+                    .' against a usual '.round($summary->baseline ?? 0.0, 2);
+            }
+        }
+
+        if ($unusual === []) {
+            return null;
+        }
+
+        return 'Its own exporter agrees: '.implode(', ', array_slice($unusual, 0, 3)).'.';
     }
 
     /**

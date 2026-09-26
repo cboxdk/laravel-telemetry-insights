@@ -52,6 +52,20 @@ That second condition is the one that matters. The primary database is in
 every trace of every burst; sharing a dependency is not evidence. Sharing a
 *failing* one is.
 
+Once the dashboard has discovered an exporter watching that dependency,
+the incident asks it what it saw. That is the step past every other tool:
+not "your calls to the cache failed", but
+
+> 100% of the affected groups called this cache, and the call failed in 9
+> of 9 traces inspected. **Its own exporter agrees: memory used was 3.97
+> against a usual 1.20, evictions was 4200 against a usual 0.**
+
+Corroboration from the dependency itself is the strongest evidence
+available, so a cause backed by it is reported with high confidence rather
+than hedged. When no exporter is discovered, or it saw nothing out of the
+ordinary, the incident says only what the traces support. See
+[infrastructure discovery](https://github.com/cboxdk/laravel-telemetry-ui/blob/main/docs/core-concepts/infrastructure.md).
+
 ### A recent change
 
 The nearest deploy, migration or incident annotation at or before onset,

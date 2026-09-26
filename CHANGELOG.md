@@ -28,6 +28,13 @@ First cut. Not released.
 
 ### Added
 
+- **A failing dependency speaks for itself.** When the dashboard has
+  discovered an exporter watching the address the app dialled, the incident
+  asks it what it saw around the onset and appends whatever was materially
+  outside its normal band — "its own exporter agrees: memory used was 3.97
+  against a usual 1.20". Corroboration from the dependency itself is the
+  strongest evidence available, so a cause backed by it is reported with
+  high confidence. Needs `cboxdk/laravel-telemetry-ui` ^2.7.
 - **Incident correlation.** Error groups that start within the same short
   window are folded into one incident, and the shared thing that failed is
   named: a downstream present in most of the burst's traces *and* erroring
