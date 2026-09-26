@@ -24,7 +24,7 @@ final class TraceDependencies
      * errored.
      *
      * @return array<string, array{signature: DependencySignature, failed: bool}>
-     *                                                                           keyed by {@see DependencySignature::key()}
+     *                                                                            keyed by {@see DependencySignature::key()}
      */
     public function of(Trace $trace): array
     {

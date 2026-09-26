@@ -285,7 +285,7 @@ final readonly class IncidentCorrelator implements CorrelatesIncidents
                 return null;
             }
 
-            $minutes = max(1, intdiv($gap, 60_000));
+            $minutes = max(1, intdiv((int) $gap, 60_000));
 
             return new SuspectedCause(
                 kind: CauseKind::Deploy,

@@ -50,15 +50,9 @@ final class FakeNotifier extends Notifier
     /** Asserts one notification's title contains the given text. */
     public function assertSent(string $needle): void
     {
-        foreach ($this->sent as $entry) {
-            if (str_contains($entry['notification']->title, $needle)) {
-                Assert::assertTrue(true);
+        $matched = array_filter($this->titles(), static fn (string $t): bool => str_contains($t, $needle));
 
-                return;
-            }
-        }
-
-        Assert::fail(sprintf(
+        Assert::assertNotSame([], $matched, sprintf(
             'No notification title contained [%s]. Sent: %s',
             $needle,
             $this->titles() === [] ? '(none)' : implode(', ', $this->titles()),

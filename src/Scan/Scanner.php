@@ -135,17 +135,20 @@ class Scanner
         }
 
         foreach ($incidents as $incident) {
+            $cause = $incident->cause;
+
             $this->notifier->send(new Notification(
                 title: 'Incident: '.$incident->title(),
-                body: $incident->cause?->evidence
-                    ?? count($incident->groups).' error groups started within moments of each other.',
+                body: $cause === null
+                    ? count($incident->groups).' error groups started within moments of each other.'
+                    : $cause->evidence,
                 severity: Severity::Critical,
                 facts: array_filter([
                     'Error groups' => (string) count($incident->groups),
                     'Occurrences' => (string) $incident->occurrences(),
                     'Services' => implode(', ', $incident->services()),
-                    'Suspected cause' => $incident->cause?->label ?? 'not established',
-                    'Confidence' => $incident->cause?->confidence->value ?? '',
+                    'Suspected cause' => $cause->label ?? 'not established',
+                    'Confidence' => $cause->confidence->value ?? '',
                 ], static fn (string $v): bool => $v !== ''),
             ));
         }
@@ -183,10 +186,14 @@ class Scanner
      */
     private function rules(AlertType $type): array
     {
-        return AlertRule::query()
+        /** @var list<AlertRule> $rules */
+        $rules = AlertRule::query()
             ->where('enabled', true)
             ->where('type', $type->value)
             ->get()
+            ->values()
             ->all();
+
+        return $rules;
     }
 }

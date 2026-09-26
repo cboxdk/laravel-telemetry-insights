@@ -9,6 +9,7 @@ use Cbox\TelemetryInsights\Correlate\Incident;
 use Cbox\TelemetryInsights\Issues\ChangeKind;
 use Cbox\TelemetryInsights\Issues\IssueChange;
 use Cbox\TelemetryInsights\Issues\IssueLedger;
+use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
 use Cbox\TelemetryUi\Contracts\AggregatesSpans;
@@ -19,7 +20,6 @@ use Cbox\TelemetryUi\Queries\Ir\TraceCondition;
 use Cbox\TelemetryUi\Queries\Ir\TraceQuery;
 use Cbox\TelemetryUi\Queries\Results\Sample;
 use DateTimeImmutable;
-use Illuminate\Contracts\Config\Repository as Config;
 
 /**
  * Walks a window and collects what a developer would want to know about it.
@@ -34,7 +34,7 @@ class DigestBuilder
         private readonly CorrelatesIncidents $correlator,
         private readonly IssueLedger $ledger,
         private readonly ConnectionManager $connections,
-        private readonly Config $config,
+        private readonly Setting $settings,
     ) {}
 
     public function build(RequestScope $scope): Digest
@@ -62,22 +62,27 @@ class DigestBuilder
     private function incidents(RequestScope $scope): array
     {
         return array_map(
-            static fn (Incident $incident): Finding => new Finding(
-                kind: FindingKind::Incident,
-                title: $incident->title(),
-                detail: $incident->cause?->evidence
-                    ?? 'These error groups started within moments of each other; no shared cause was established.',
-                facts: array_filter([
-                    'Started' => date('Y-m-d H:i', intdiv($incident->onsetNano, 1_000_000_000)),
-                    'Error groups' => (string) count($incident->groups),
-                    'Occurrences' => (string) $incident->occurrences(),
-                    'Services' => implode(', ', $incident->services()),
-                    'Suspected cause' => $incident->cause?->label ?? '',
-                    'Confidence' => $incident->cause?->confidence->value ?? '',
-                    'Example trace' => $incident->cause?->traceId ?? '',
-                ], static fn (string $v): bool => $v !== ''),
-                magnitude: (float) $incident->occurrences(),
-            ),
+            static function (Incident $incident): Finding {
+                $cause = $incident->cause;
+
+                return new Finding(
+                    kind: FindingKind::Incident,
+                    title: $incident->title(),
+                    detail: $cause === null
+                        ? 'These error groups started within moments of each other; no shared cause was established.'
+                        : $cause->evidence,
+                    facts: array_filter([
+                        'Started' => date('Y-m-d H:i', intdiv($incident->onsetNano, 1_000_000_000)),
+                        'Error groups' => (string) count($incident->groups),
+                        'Occurrences' => (string) $incident->occurrences(),
+                        'Services' => implode(', ', $incident->services()),
+                        'Suspected cause' => $cause->label ?? '',
+                        'Confidence' => $cause->confidence->value ?? '',
+                        'Example trace' => $cause->traceId ?? '',
+                    ], static fn (string $v): bool => $v !== ''),
+                    magnitude: (float) $incident->occurrences(),
+                );
+            },
             $this->correlator->correlate($scope),
         );
     }
@@ -127,8 +132,8 @@ class DigestBuilder
      */
     private function slowRoutes(RequestScope $scope): array
     {
-        $threshold = (float) $this->config->get('telemetry-insights.digest.slow_route_ms', 1000);
-        $limit = (int) $this->config->get('telemetry-insights.digest.limit', 5);
+        $threshold = $this->settings->float('telemetry-insights.digest.slow_route_ms', 1000);
+        $limit = $this->settings->int('telemetry-insights.digest.limit', 5);
 
         try {
             $samples = $this->connections->metrics()->query(
@@ -184,7 +189,7 @@ class DigestBuilder
             return [];
         }
 
-        $limit = (int) $this->config->get('telemetry-insights.digest.limit', 5);
+        $limit = $this->settings->int('telemetry-insights.digest.limit', 5);
 
         try {
             $buckets = $traces->aggregateSpans(
@@ -202,8 +207,8 @@ class DigestBuilder
             return [];
         }
 
-        $slowMs = (float) $this->config->get('telemetry-insights.digest.slow_query_ms', 100);
-        $repeatCalls = (int) $this->config->get('telemetry-insights.digest.repeated_query_calls', 100);
+        $slowMs = $this->settings->float('telemetry-insights.digest.slow_query_ms', 100);
+        $repeatCalls = $this->settings->int('telemetry-insights.digest.repeated_query_calls', 100);
 
         $findings = [];
 

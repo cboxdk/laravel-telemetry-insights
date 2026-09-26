@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Tests;
 
-use Cbox\TelemetryInsights\Testing\InteractsWithInsights;
 use Cbox\TelemetryInsights\TelemetryInsightsServiceProvider;
+use Cbox\TelemetryInsights\Testing\InteractsWithInsights;
 use Cbox\TelemetryUi\TelemetryUiServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Orchestra\Testbench\TestCase as Orchestra;

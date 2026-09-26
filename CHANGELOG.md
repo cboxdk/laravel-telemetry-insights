@@ -1,0 +1,48 @@
+# Changelog
+
+All notable changes to `cboxdk/laravel-telemetry-insights` are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+First cut. Not released.
+
+### Added
+
+- **Incident correlation.** Error groups that start within the same short
+  window are folded into one incident, and the shared thing that failed is
+  named: a downstream present in most of the burst's traces *and* erroring
+  in them, a deploy shortly before onset, or a host signal outside its
+  normal band. Each cause carries the sentence that produced it and a coarse
+  confidence. Identity is keyed on the cause and the hour, so a burst that
+  grows keeps its signature instead of filing a new incident every pass.
+- **Issue ledger.** One row per error-group fingerprint holding the team's
+  decision — open, resolved, ignored, snoozed — as an overlay on the
+  telemetry store, which keeps the occurrences. Makes two facts answerable
+  that a store alone cannot: a fingerprint never seen before, and one that
+  fired again after being resolved (a regression, which reopens it).
+- **Alerting.** `AlertRule` / `AlertEvent` with event-shaped types (new
+  issue, incident) fired by the scan, and measured types (error rate, p95,
+  throughput, any metric) evaluated on a schedule through the
+  backend-neutral query IR, so one rule works on any supported store.
+  Cooldowns record the firing without notifying. An unavailable measurement
+  is never a breach — an unreachable Prometheus or an idle window does not
+  fire a "below" rule.
+- **Digests.** Ranked findings — incidents, regressions, new issues, slow
+  routes, slow queries, and queries that are individually fast but run
+  hundreds of times — each with the attributes that identify it.
+  `--markdown` prints them as one self-contained brief to hand to a coding
+  assistant.
+- **Notifications.** Log, Slack (Block Kit over an incoming webhook) and
+  generic webhook channels behind a `NotifiesChannel` contract; channels
+  never throw, so a dead pager cannot take down the pass that found the
+  problem.
+- **Dashboard pages.** Incidents and Issues tables, registered into
+  `cboxdk/laravel-telemetry-ui` when it is served. Everything that knows the
+  dashboard's UI exists is confined to `src/Ui/`, enforced by an
+  architecture test, so the read layer can be extracted later without
+  rewriting this package.
+- **Testing.** `InteractsWithInsights` plus `FakeNotifier`, used by the
+  package's own suite.

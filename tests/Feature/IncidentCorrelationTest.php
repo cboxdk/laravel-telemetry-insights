@@ -6,7 +6,6 @@ use Cbox\TelemetryInsights\Contracts\CorrelatesIncidents;
 use Cbox\TelemetryInsights\Correlate\CauseKind;
 use Cbox\TelemetryInsights\Correlate\Confidence;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
-use Illuminate\Support\Facades\Http;
 
 /**
  * The case the whole package exists for.
@@ -113,22 +112,12 @@ it('gives the same incident the same signature on a second pass, even as it grow
         exceptionStream('cccc00000003', 'RuntimeException', 'no session', 'trace0003', 296),
     ];
 
-    // One fake for the whole test, reading a variable the test moves on:
-    // a second Http::fake() would be merged behind this one, not replace it.
-    $streams = $burst;
-
-    Http::fake([
-        'loki.test:3100/loki/api/v1/query_range*' => function () use (&$streams) {
-            return Http::response(lokiStreams($streams));
-        },
-        'tempo.test:3200/api/search*' => Http::response(['traces' => []]),
-        'tempo.test:3200/api/traces/*' => Http::response(tempoTrace($spans)),
-    ]);
+    fakeBackends($burst, $spans);
 
     $first = correlator()->correlate(scope())[0];
 
     // The same burst, one more group caught up in it.
-    $streams = [...$burst, exceptionStream('dddd00000004', 'ErrorException', 'undefined key', 'trace0004', 294)];
+    fakeBackends([...$burst, exceptionStream('dddd00000004', 'ErrorException', 'undefined key', 'trace0004', 294)], $spans);
 
     $second = correlator()->correlate(scope())[0];
 

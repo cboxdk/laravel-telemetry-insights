@@ -101,21 +101,63 @@ function tempoTrace(array $spans): array
 }
 
 /**
+ * The backend a test is reading, as mutable state.
+ *
+ * Laravel merges successive Http::fake() calls and the first matching stub
+ * wins, so a test that wants the window to CHANGE cannot just fake twice.
+ * One stub reads this holder instead, and fakeBackends() moves it.
+ *
+ * @param  list<array<string, mixed>>|null  $streams
+ * @param  list<array<string, mixed>>|null  $spans
+ * @return array{streams: list<array<string, mixed>>, spans: list<array<string, mixed>>}
+ */
+function backendState(?array $streams = null, ?array $spans = null): array
+{
+    static $state = ['streams' => [], 'spans' => []];
+
+    if ($streams !== null) {
+        $state = ['streams' => $streams, 'spans' => $spans ?? []];
+    }
+
+    return $state;
+}
+
+/**
  * A whole backend for one test: the exception records in Loki, and a Tempo
- * that answers every trace lookup with the same trace.
+ * that answers every trace lookup with the same trace. Call it again to
+ * change what the next read sees.
  *
  * The empty search stub matters: the error reader falls back to Tempo for
  * browser exceptions, and an unstubbed call there fails the read — which
- * correlation then (correctly) treats as "no data".
+ * the callers then (correctly) treat as "no data".
  *
  * @param  list<array<string, mixed>>  $streams
  * @param  list<array<string, mixed>>  $spans
  */
 function fakeBackends(array $streams, array $spans = []): void
 {
+    backendState($streams, $spans);
+
     Http::fake([
-        'loki.test:3100/loki/api/v1/query_range*' => Http::response(lokiStreams($streams)),
+        'loki.test:3100/loki/api/v1/query_range*' => fn () => Http::response(lokiStreams(backendState()['streams'])),
         'tempo.test:3200/api/search*' => Http::response(['traces' => []]),
-        'tempo.test:3200/api/traces/*' => Http::response(tempoTrace($spans)),
+        'tempo.test:3200/api/traces/*' => fn () => Http::response(tempoTrace(backendState()['spans'])),
     ]);
+}
+
+/**
+ * A Prometheus instant-vector response.
+ *
+ * @param  list<array{labels: array<string, string>, value: float}>  $series
+ * @return array<string, mixed>
+ */
+function promVector(array $series): array
+{
+    $result = [];
+
+    foreach ($series as $entry) {
+        $result[] = ['metric' => $entry['labels'], 'value' => [time(), (string) $entry['value']]];
+    }
+
+    return ['status' => 'success', 'data' => ['resultType' => 'vector', 'result' => $result]];
 }

@@ -33,7 +33,7 @@ final readonly class Digest
     {
         usort($findings, static fn (Finding $a, Finding $b): int => $b->score() <=> $a->score());
 
-        return new self($from, $to, array_values($findings), $scope);
+        return new self($from, $to, $findings, $scope);
     }
 
     public function isEmpty(): bool

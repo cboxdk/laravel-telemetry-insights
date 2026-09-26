@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Ui\Panels;
 
+use Cbox\TelemetryInsights\Correlate\Confidence;
 use Cbox\TelemetryInsights\Models\Incident;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
@@ -45,11 +46,16 @@ class IncidentsTable extends Panel
                 continue;
             }
 
+            $confidence = $incident->cause_confidence;
+
             $rows[] = [
                 'started' => Ui::cell($incident->onset_at->format('d/m H:i')),
                 'title' => Ui::cell($incident->title),
                 'cause' => Ui::cell($incident->cause_label ?? '—', [
-                    'sub' => $incident->cause_confidence?->value,
+                    // The column is nullable even though the cast says
+                    // otherwise; an incident with no established cause has
+                    // no confidence in it either.
+                    'sub' => $confidence instanceof Confidence ? $confidence->value : '',
                 ]),
                 'groups' => Ui::cell($incident->group_count),
                 'occurrences' => Ui::cell($incident->occurrences),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryInsights\Notify;
 
 use Cbox\TelemetryInsights\Contracts\NotifiesChannel;
+use Cbox\TelemetryInsights\Support\Setting;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Log;
@@ -22,6 +23,7 @@ final readonly class SlackChannel implements NotifiesChannel
     public function __construct(
         private HttpFactory $http,
         private Config $config,
+        private Setting $settings,
     ) {}
 
     public function send(Notification $notification): bool
@@ -34,7 +36,7 @@ final readonly class SlackChannel implements NotifiesChannel
 
         try {
             $response = $this->http
-                ->timeout((int) $this->config->get('telemetry-insights.notify.slack.timeout', 5))
+                ->timeout($this->settings->int('telemetry-insights.notify.slack.timeout', 5))
                 ->post($webhook, $this->payload($notification));
 
             if ($response->successful()) {
