@@ -392,6 +392,11 @@ final readonly class IncidentCorrelator implements CorrelatesIncidents
      * The scope as Prometheus labels, for the signal lookup. Only what the
      * scope actually pins — an unset service must not become `service_name=""`.
      *
+     * The dimension keys are `service` / `environment`, not the attribute
+     * names: ScopeLabels throws on an unknown dimension, and because both
+     * calls sit behind a non-empty check, passing the wrong ones only blew
+     * up for installs that had actually scoped their scan.
+     *
      * @return array<string, string>
      */
     private static function metricLabels(RequestScope $scope): array
@@ -399,11 +404,11 @@ final readonly class IncidentCorrelator implements CorrelatesIncidents
         $labels = [];
 
         if ($scope->service !== '') {
-            $labels[ScopeLabels::metrics('service.name')] = $scope->service;
+            $labels[ScopeLabels::metrics('service')] = $scope->service;
         }
 
         if ($scope->environment !== '') {
-            $labels[ScopeLabels::metrics('deployment.environment.name')] = $scope->environment;
+            $labels[ScopeLabels::metrics('environment')] = $scope->environment;
         }
 
         return $labels;

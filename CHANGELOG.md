@@ -11,6 +11,11 @@ First cut. Not released.
 
 ### Fixed
 
+- **A scan with a service configured crashed.** `hostPressure()` built its
+  Prometheus labels from dimension names `ScopeLabels` rejects, so an
+  install that had scoped its scan (`TELEMETRY_INSIGHTS_SERVICE=…`) hit an
+  uncaught exception the moment a burst had no dependency or deploy cause.
+  Every test scanned every service, which is why it went unnoticed.
 - **A digest no longer marks everything as seen.** `DigestBuilder` folded
   the window into the ledger as it read it, so running
   `telemetry-insights:digest` before `:scan` left the scan with nothing new

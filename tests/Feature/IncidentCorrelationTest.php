@@ -124,3 +124,21 @@ it('gives the same incident the same signature on a second pass, even as it grow
     expect($second->groups)->toHaveCount(4)
         ->and($second->signature)->toBe($first->signature);
 });
+
+it('correlates a scoped window without blowing up on the scope labels', function (): void {
+    fakeBackends(
+        [
+            exceptionStream('aaaa00000001', 'RedisException', 'refused', 'trace0001', 300),
+            exceptionStream('bbbb00000002', 'TypeError', 'null', 'trace0002', 298),
+            exceptionStream('cccc00000003', 'RuntimeException', 'no session', 'trace0003', 296),
+        ],
+        [],
+    );
+
+    // Everything else in this file scans every service. An install that
+    // pins one reaches the host-pressure path, which builds Prometheus
+    // labels — and did so with dimension names ScopeLabels rejects.
+    $incidents = correlator()->correlate(new RequestScope(period: '1h', service: 'checkout', environment: 'production'));
+
+    expect($incidents)->toHaveCount(1);
+});
