@@ -53,3 +53,16 @@ digests. The dashboard reads; this remembers.
 - The error reader falls back to Tempo for browser exceptions, so a test
   must stub `tempo.test:3200/api/search*` or the read fails and correlation
   correctly reports nothing.
+
+## Verifying against live telemetry
+
+No testbench.yaml is committed (it would leak into the suite). To run the
+commands against a real backend, write one temporarily:
+
+    providers: [Cbox\Telemetry\TelemetryServiceProvider,
+                Cbox\TelemetryUi\TelemetryUiServiceProvider,
+                Cbox\TelemetryInsights\TelemetryInsightsServiceProvider]
+
+then export DB_CONNECTION/DB_DATABASE and the three TELEMETRY_UI_*_URL vars
+and run `vendor/bin/testbench migrate --force` followed by the command.
+Delete the file afterwards.
