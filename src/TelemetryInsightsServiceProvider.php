@@ -67,11 +67,22 @@ class TelemetryInsightsServiceProvider extends ServiceProvider
      */
     private function scheduleJobs(): void
     {
-        $this->app->booted(function (): void {
+        // callAfterResolving, NOT booted() + make(Schedule::class).
+        //
+        // Resolving Schedule runs the host's whole `schedule()` method, and a
+        // host is entitled to build its schedule from state: Hubhus asks the
+        // jobs table whether a job is already queued before scheduling it. A
+        // booted() hook forced that to happen in EVERY console command,
+        // including `package:discover` during `composer install`, where there
+        // is no database yet — so installing this package broke the install
+        // that was installing it.
+        //
+        // This registers the same work against whoever resolves Schedule for
+        // their own reasons (`schedule:run`, `schedule:list`), and costs
+        // nothing when nobody does.
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule): void {
             /** @var Config $config */
             $config = $this->app->make(Config::class);
-            /** @var Schedule $schedule */
-            $schedule = $this->app->make(Schedule::class);
 
             $jobs = [
                 'scan' => ScanCommand::NAME,
