@@ -115,6 +115,8 @@ final class InsightsFixture
                 'fingerprints' => ['a1c4f2e8b9', '3ca8e5019d'],
                 'services' => ['checkout', 'catalogue'],
                 'trace' => 'b4f19c02d7e8a35619fb2c4d0a7e88c1',
+                'groups' => 3,
+                'occurrences' => 412,
             ],
             [
                 'signature' => 'deploy:v2026.9.7',
@@ -128,6 +130,8 @@ final class InsightsFixture
                 'fingerprints' => ['d7b3019fa2'],
                 'services' => ['billing'],
                 'trace' => null,
+                'groups' => 1,
+                'occurrences' => 96,
             ],
         ];
 
@@ -144,6 +148,11 @@ final class InsightsFixture
                 'cause_trace_id' => $incident['trace'],
                 'fingerprints' => $incident['fingerprints'],
                 'services' => $incident['services'],
+                // The table shows both, and leaving them at their zero
+                // defaults printed "0 groups" next to an incident whose own
+                // title says it spans three.
+                'group_count' => $incident['groups'],
+                'occurrences' => $incident['occurrences'],
                 'acknowledged_at' => $incident['status'] === IncidentStatus::Acknowledged
                     ? $now->copy()->subHours(2)
                     : null,
