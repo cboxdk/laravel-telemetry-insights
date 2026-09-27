@@ -7,7 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-First cut. Not released.
+## [1.0.0] - 2026-09-27
+
+First release. `cboxdk/laravel-telemetry-ui` reads the backends and shows you
+what is happening; this package remembers. It keeps the state a dashboard
+cannot: which error groups the team has already decided about, which ones
+started together and what they have in common, and what is worth waking
+someone for.
+
+It needs a database of its own (four tables) and
+`cboxdk/laravel-telemetry-ui` ^3.0. Nothing in it runs unless you schedule
+the scan.
+
+The entries below are the development history of that first cut; the fixes
+name faults that were never in a released version.
 
 ### Fixed
 
