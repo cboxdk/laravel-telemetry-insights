@@ -5,6 +5,23 @@ All notable changes to `cboxdk/laravel-telemetry-insights` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-09-27
+
+### Fixed
+
+- **Booting no longer builds the host's schedule.** The three jobs were
+  registered from an `app->booted()` hook that resolved `Schedule`, and
+  resolving it runs the host's entire `schedule()` method. A host is entitled
+  to build its schedule from state — one asks its jobs table whether a job is
+  already queued before scheduling it — so this ran a database query in every
+  console command, `package:discover` during `composer install` included,
+  where there is no database yet. Installing this package broke the install
+  that was installing it, with a `Connection refused` from a stack trace that
+  named the host's kernel and not this package.
+
+  `callAfterResolving()` registers the same work against whoever resolves the
+  scheduler for their own reasons, and costs nothing when nobody does.
+
 ## [Unreleased]
 
 ## [1.0.0] - 2026-09-27
