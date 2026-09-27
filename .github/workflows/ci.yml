@@ -44,6 +44,13 @@ jobs:
           composer require "illuminate/contracts:${{ matrix.laravel }}" --no-interaction --no-update
           composer update --${{ matrix.stability }} --prefer-dist --no-interaction
 
+      # The docs-screenshot suite drives a real browser. Without this the
+      # whole run died on PlaywrightNotInstalledException — the matrix was
+      # red on main before this step existed, so nothing else it covered was
+      # being read either.
+      - name: Install Playwright
+        run: npm install playwright && npx playwright install --with-deps chromium
+
       - name: Pest
         run: vendor/bin/pest --ci
 
