@@ -1,0 +1,27 @@
+{
+  "name": "laravel-telemetry-insights",
+  "version": "1.0.0",
+  "description": "**The stateful half of observability for Laravel** — an issue ledger, incident correlation, alerting and digests, on top of [`cboxdk/laravel-telemetry-ui`](https://github.com/cboxdk/laravel-telemetry-ui).",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cboxdk/laravel-telemetry-insights.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cboxdk/laravel-telemetry-insights/issues"
+  },
+  "homepage": "https://github.com/cboxdk/laravel-telemetry-insights#readme",
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}

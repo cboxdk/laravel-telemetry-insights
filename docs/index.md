@@ -16,6 +16,14 @@ The dashboard stays what it is — a read-only window onto Tempo, Loki and
 Prometheus. This package reads through the same query layer and keeps its own
 small set of tables beside it.
 
+![Issues: one row per error fingerprint, with the status the team gave it — open, snoozed, resolved in a named release — rather than one row per occurrence.](screenshots/issues.png)
+
+![Incidents: error groups that moved together, with the suspected cause and the evidence for it — a dependency that started failing, or a deploy the onset followed.](screenshots/incidents.png)
+
+Both screenshots are captured by this package's own browser tests, against
+seeded fixture data, so what is pictured is what the code renders. See
+`src/Testing/ScreenshotManifest.php`.
+
 ## Why a separate package
 
 The dashboard queries your telemetry stores and writes nothing to them. That

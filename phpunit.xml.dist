@@ -6,7 +6,11 @@
          cacheDirectory=".phpunit.cache">
     <testsuites>
         <testsuite name="Test Suite">
-            <directory>tests</directory>
+            <directory>tests/Feature</directory>
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Browser">
+            <directory>tests/Browser</directory>
         </testsuite>
     </testsuites>
     <source>

@@ -2,10 +2,15 @@
 
 declare(strict_types=1);
 
+use Cbox\TelemetryInsights\Tests\BrowserTestCase;
 use Cbox\TelemetryInsights\Tests\TestCase;
 use Illuminate\Support\Facades\Http;
 
-uses(TestCase::class)->in(__DIR__);
+// Named rather than blanket: Pest refuses overlapping bindings, and the
+// browser suite needs its own case — the fixture backends and the seeded
+// issues without which those screens render their empty state.
+uses(TestCase::class)->in('Feature', 'Unit');
+uses(BrowserTestCase::class)->in('Browser');
 
 /**
  * An exception record as cboxdk/laravel-telemetry writes it to Loki: the
