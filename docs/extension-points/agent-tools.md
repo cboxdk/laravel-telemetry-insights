@@ -39,6 +39,24 @@ refused rather than guessed at. Output is built for a reader that pays per
 token: empty keys are left out, long messages are cut in the list, and
 `show_issue` has the rest.
 
+## A skill for the agent (Laravel Boost)
+
+The package ships an agent skill, `telemetry-insights-triage`, at
+`resources/boost/skills/telemetry-insights-triage/SKILL.md`, the path
+[Laravel Boost](https://laravel.com/docs/boost#third-party-package-skills)
+reads in third-party packages. It teaches the agent the triage loop: the
+open list, `show_issue`, the latest trace into telemetry-ui's
+`trace_summary`, and which decision tool fits, with a comment written for
+the next reader. It also says when not to change a status: only when asked
+to act on the ledger, never while merely investigating.
+
+Run `php artisan boost:install` (Boost 2.x), choose *Agent Skills*, and
+tick `cboxdk/laravel-telemetry-insights` in the third-party list. Boost
+only reads direct dependencies, so the dashboard's `telemetry-ui-mcp` skill
+and laravel-telemetry's own skills come with them only when the app
+requires `cboxdk/laravel-telemetry-ui` and `cboxdk/laravel-telemetry`
+itself.
+
 ## Who did it
 
 Every change is written to the issue's [history](../core-concepts/issues.md#history)

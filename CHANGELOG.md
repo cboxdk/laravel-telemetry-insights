@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A Laravel Boost skill for triage.** `php artisan boost:install`
+  (Boost 2.x) now offers `telemetry-insights-triage` from
+  `resources/boost/skills/`: the agent tools, the open-list → `show_issue`
+  → trace loop, which decision fits (resolve, ignore, archive, reopen) and
+  when not to make one, directives and the scope lock. See
+  [Agent tools](docs/extension-points/agent-tools.md#a-skill-for-the-agent-laravel-boost).
+
 ## [1.1.0] - 2026-10-13
 
 Needs a migration (`php artisan migrate`): seven columns on the issues

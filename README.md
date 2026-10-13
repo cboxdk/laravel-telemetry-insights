@@ -61,6 +61,10 @@ failing.
   the queries that are individually fast but run a thousand times.
 - **A brief for your assistant** — `--markdown` prints the findings as one
   self-contained document, ready to paste in with the repository open.
+- **Agent tools** — the ledger on the dashboard's MCP server: list, show,
+  resolve, ignore, reopen and archive issues from an assistant, with every
+  change in the issue history. Ships a [Laravel Boost](https://github.com/laravel/boost)
+  skill (`telemetry-insights-triage`) that teaches the triage workflow.
 - **Slack, webhook or your own channel** — one method to implement, no SDK.
 - **Act where you read** — resolve, snooze, ignore or acknowledge from a
   menu on the dashboard row, or over HTTP from your own screen. Both behind
