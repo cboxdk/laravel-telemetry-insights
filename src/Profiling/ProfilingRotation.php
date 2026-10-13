@@ -67,7 +67,7 @@ final readonly class ProfilingRotation
 
         $fresh = array_values(array_filter(
             $ranked,
-            static fn (RouteImpact $r): bool => ! isset($recent[($r->service ?? '')."\0".$r->pattern()]),
+            static fn (RouteImpact $r): bool => ! isset($recent[($r->service ?? '')."\0".$r->route]),
         ));
 
         usort($fresh, static fn (RouteImpact $a, RouteImpact $b): int => $b->impact <=> $a->impact);
@@ -94,7 +94,7 @@ final readonly class ProfilingRotation
 
             $runs[] = $this->directives->place(new DirectiveRequest(
                 match: 'route',
-                value: $route->pattern(),
+                value: $route->route,
                 minutes: $minutes,
                 profile: $profile,
                 reason: 'insights profiling rotation: #'.$rank.' by impact, '.$route->label,

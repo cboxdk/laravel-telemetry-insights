@@ -121,7 +121,7 @@ it('profiles the costliest routes, then moves on to the next ones', function ():
 
     $runs = app(ProfilingRotation::class)->rotate(new RequestScope(period: '24h'));
 
-    expect(array_map(static fn (ProfilingRun $r): string => $r->value, $runs))->toBe(['checkout', 'search'])
+    expect(array_map(static fn (ProfilingRun $r): string => $r->value, $runs))->toBe(['/checkout', '/search'])
         ->and($runs[0]->source)->toBe(ProfilingRun::ROTATION)
         ->and($runs[0]->profile)->toBeTrue()
         ->and($runs[0]->minutes)->toBe(15)
@@ -133,7 +133,7 @@ it('profiles the costliest routes, then moves on to the next ones', function ():
     // In their cooldown: the next pass takes the next two.
     $next = app(ProfilingRotation::class)->rotate(new RequestScope(period: '24h'));
 
-    expect(array_map(static fn (ProfilingRun $r): string => $r->value, $next))->toBe(['/', 'health']);
+    expect(array_map(static fn (ProfilingRun $r): string => $r->value, $next))->toBe(['/', '/health']);
 });
 
 it('ranks by p95 times request rate when told to', function (): void {
@@ -166,8 +166,8 @@ it('rotates from the console only when enabled, and lists what it did', function
 
     config()->set('telemetry-insights.profiling.rotation.enabled', true);
 
-    $this->artisan('telemetry-insights:profiling')->expectsOutputToContain('Profiling checkout on shop for 15m')->assertSuccessful();
-    $this->artisan('telemetry-insights:profiling', ['--list' => true])->expectsOutputToContain('route checkout')->assertSuccessful();
+    $this->artisan('telemetry-insights:profiling')->expectsOutputToContain('Profiling /checkout on shop for 15m')->assertSuccessful();
+    $this->artisan('telemetry-insights:profiling', ['--list' => true])->expectsOutputToContain('route /checkout')->assertSuccessful();
 });
 
 it('watches one user ad hoc from the console', function (): void {
@@ -193,7 +193,7 @@ it('shows the rotation to an agent, read-only', function (): void {
 
     TelemetryServer::tool(ProfilingRotationTool::class, ['next' => true])
         ->assertOk()
-        ->assertSee('"directive":"route checkout"')
+        ->assertSee('"directive":"route /checkout"')
         ->assertSee('"state":"active"')
         ->assertSee('"profile":true')
         ->assertSee('"next":[{"service":"shop","route":"/search"');
@@ -239,4 +239,37 @@ it('shows what was profiled on the dashboard', function (): void {
     expect($rows[0]['directive']['v'])->toBe('route checkout')
         ->and($rows[0]['state']['v'])->toBe('Active')
         ->and($rows[0]['source']['v'])->toBe('Rotation');
+});
+
+it('signs exactly as laravel-telemetry\'s DirectivesController verifies', function (): void {
+    // The controller's check, restated from
+    // cboxdk/laravel-telemetry src/Http/Controllers/DirectivesController.php:
+    // a digit-only timestamp within 300s, and
+    // hash_equals('sha256='.hash_hmac('sha256', $timestamp.'.'.$request->getContent(), $secret), $signature).
+    $verifies = static function (Request $request, string $secret): bool {
+        $timestamp = $request->header('X-Telemetry-Timestamp')[0] ?? '';
+        $signature = $request->header('X-Telemetry-Signature')[0] ?? '';
+
+        return ctype_digit($timestamp)
+            && abs(time() - (int) $timestamp) <= 300
+            && hash_equals('sha256='.hash_hmac('sha256', $timestamp.'.'.$request->body(), $secret), $signature);
+    };
+
+    Http::fake(['shop.test/telemetry/directives' => static fn (Request $request) => $verifies($request, 's3cret')
+        ? Http::response(['directive' => ['id' => '01JTEST', 'match' => 'route', 'key' => null, 'value' => '/', 'profile' => true,
+            'expires_at' => time() + 900, 'reason' => null, 'created_by' => 'insights']], 201)
+        : Http::response(['error' => 'Invalid signature.'], 401)]);
+
+    $run = app(Directives::class)->place(new DirectiveRequest('route', '/', minutes: 15, profile: true, service: 'shop'), ProfilingRun::ROTATION);
+
+    expect($run->status)->toBe(ProfilingRun::PLACED)
+        ->and($run->directive_id)->toBe('01JTEST')
+        ->and($run->value)->toBe('/');
+
+    // A wrong secret is what the controller would refuse.
+    config()->set('telemetry-insights.profiling.targets.shop.secret', 'other');
+    $refused = app(Directives::class)->place(new DirectiveRequest('route', '/', service: 'shop'), ProfilingRun::ADHOC);
+
+    expect($refused->status)->toBe(ProfilingRun::FAILED)
+        ->and($refused->error)->toContain('(401)');
 });

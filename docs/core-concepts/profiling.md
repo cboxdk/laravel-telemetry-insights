@@ -41,8 +41,9 @@ four hours). Each pass:
    `minutes` (15), `created_by` `insights`, the reason naming the rank and
    the impact.
 
-The `http_route` label is sent as the route's URI template without its
-leading slash, which is what a `route` directive matches in Laravel.
+The `http_route` label is sent unchanged (`/checkout/{id}`, `/`, or a
+logical route such as `livewire:counter`); a `route` directive matches it
+as well as the route's name.
 
 ```bash
 php artisan telemetry-insights:profiling --dry-run   # what it would pick

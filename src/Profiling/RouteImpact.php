@@ -9,20 +9,15 @@ final readonly class RouteImpact
 {
     public function __construct(
         public ?string $service,
-        /** The `http_route` label as the metric carries it. */
+        /**
+         * The `http_route` label exactly as the metric carries it. A `route`
+         * directive matches it as-is (as well as the route name, the URI
+         * without its slash and the logical route), so it is sent unchanged.
+         */
         public string $route,
         /** Bigger is worse, in the measure's own unit. */
         public float $impact,
         /** "1,234s total" or "0.8s p95 × 12 req/s" — for a person. */
         public string $label,
     ) {}
-
-    /**
-     * The pattern a `route` directive matches: the route's URI template,
-     * which Laravel keeps without its leading slash.
-     */
-    public function pattern(): string
-    {
-        return $this->route === '/' ? '/' : ltrim($this->route, '/');
-    }
 }
