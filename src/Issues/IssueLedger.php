@@ -23,7 +23,10 @@ use Illuminate\Support\Carbon;
  */
 class IssueLedger
 {
-    public function __construct(private readonly ErrorExplorer $errors) {}
+    public function __construct(
+        private readonly ErrorExplorer $errors,
+        private readonly IssueActions $actions = new IssueActions,
+    ) {}
 
     /**
      * Read the window, fold it into the ledger, and report what changed.
@@ -96,7 +99,7 @@ class IssueLedger
      * Occurrences folded per fingerprint: how many, and the newest.
      *
      * @param  list<array{group: string, type: string, message: string, nano: int, traceId: string|null, service: string, user: string, frontend: bool, attributes: array<string, string>}>  $occurrences
-     * @return array<string, array{type: string, message: string, service: string, count: int, latest: int}>
+     * @return array<string, array{type: string, message: string, service: string, count: int, latest: int, traceId: string|null}>
      */
     private function fold(array $occurrences): array
     {
@@ -110,12 +113,18 @@ class IssueLedger
             }
 
             $existing = $seen[$fingerprint] ?? null;
+            $newest = $existing === null || $occurrence['nano'] >= $existing['latest'];
+
             $seen[$fingerprint] = [
                 'type' => $existing['type'] ?? $occurrence['type'],
                 'message' => $existing['message'] ?? $occurrence['message'],
                 'service' => $existing['service'] ?? $occurrence['service'],
                 'count' => ($existing['count'] ?? 0) + 1,
                 'latest' => max($existing['latest'] ?? 0, $occurrence['nano']),
+                // The newest occurrence's trace: the one worth opening first.
+                'traceId' => $newest
+                    ? ($occurrence['traceId'] ?? $existing['traceId'] ?? null)
+                    : ($existing['traceId'] ?? $occurrence['traceId']),
             ];
         }
 
@@ -123,30 +132,33 @@ class IssueLedger
     }
 
     /**
-     * @param  array{type: string, message: string, service: string, count: int, latest: int}  $data
+     * @param  array{type: string, message: string, service: string, count: int, latest: int, traceId: string|null}  $data
      */
     private function fresh(string $fingerprint, array $data, Carbon $lastSeen, bool $persist): IssueChange
     {
         $issue = new Issue;
         $issue->forceFill([
             'fingerprint' => $fingerprint,
+            'kind' => IssueKind::Exception,
             'status' => IssueStatus::Open,
             'type' => $data['type'],
             'message' => $data['message'],
             'service' => $data['service'],
+            'last_trace_id' => $data['traceId'],
             'first_recorded_at' => $lastSeen,
             'last_seen_at' => $lastSeen,
         ]);
 
         if ($persist) {
             $issue->save();
+            $this->actions->log($issue, IssueAction::Opened, Attribution::scan());
         }
 
         return new IssueChange($issue, ChangeKind::New, $data['count']);
     }
 
     /**
-     * @param  array{type: string, message: string, service: string, count: int, latest: int}  $data
+     * @param  array{type: string, message: string, service: string, count: int, latest: int, traceId: string|null}  $data
      */
     private function existing(Issue $issue, array $data, Carbon $lastSeen, bool $persist): IssueChange
     {
@@ -154,6 +166,7 @@ class IssueLedger
 
         $issue->forceFill([
             'last_seen_at' => $lastSeen,
+            'last_trace_id' => $data['traceId'] ?? $issue->last_trace_id,
             // A resolved issue that fired again is open again; nobody should
             // have to notice that by hand.
             'status' => $regressed ? IssueStatus::Open : $issue->status,
@@ -162,6 +175,10 @@ class IssueLedger
 
         if ($persist) {
             $issue->save();
+
+            if ($regressed) {
+                $this->actions->log($issue, IssueAction::Regressed, Attribution::scan());
+            }
         }
 
         return new IssueChange($issue, $regressed ? ChangeKind::Regression : ChangeKind::Recurring, $data['count']);

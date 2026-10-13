@@ -13,7 +13,7 @@ From `composer.json`, and nothing beyond what the resolver actually enforces.
 | PHP | 8.3, 8.4 or 8.5 |
 | Laravel | 12 or 13 (`illuminate/*`) |
 | Dashboard | `cboxdk/laravel-telemetry-ui` ^2.7 |
-| Database | Any Laravel-supported connection; the package ships four tables |
+| Database | Any Laravel-supported connection; the package ships five tables |
 
 `cboxdk/laravel-telemetry-ui` is a hard dependency: this package reads
 telemetry through its contracts, drivers and query IR. It does **not** need

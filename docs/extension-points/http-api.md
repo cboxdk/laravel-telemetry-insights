@@ -15,7 +15,7 @@ middleware and throttle — so the gate that guards the dashboard guards
 these, and there is no second authorization to wire up.
 
 ```
-GET  {path}/api/v2/insights/issues[?status=open]
+GET  {path}/api/v2/insights/issues[?status=open][&kind=scheduled_task_missed]
 POST {path}/api/v2/insights/issues/{fingerprint}
 GET  {path}/api/v2/insights/incidents
 POST {path}/api/v2/insights/incidents/{signature}
@@ -45,8 +45,12 @@ can be wrong.
 POST /telemetry-ui/api/v2/insights/issues/aaaa00000001
 Content-Type: application/json
 
-{"action": "resolve", "release": "v2.4.1", "by": "sylvester"}
+{"action": "resolve", "release": "v2.4.1", "by": "sylvester", "comment": "Retry added"}
 ```
+
+Every action takes an optional `comment`, and every action is written to
+the issue's history as made via API — naming `by` when given, else the
+signed-in user.
 
 | `action` | Extra fields |
 | --- | --- |
@@ -79,10 +83,14 @@ An issue:
 ```json
 {
   "fingerprint": "aaaa00000001",
+  "kind": "exception",
+  "title": "RedisException",
   "status": "open",
   "type": "RedisException",
   "message": "Connection refused",
   "service": "checkout",
+  "environment": null,
+  "task": null,
   "assignee": null,
   "lastSeen": "2026-09-26T08:14:02+00:00",
   "firstRecorded": "2026-09-24T02:14:55+00:00",

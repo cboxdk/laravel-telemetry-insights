@@ -27,6 +27,12 @@ enum AlertType: string
     /** The correlator opened an incident. */
     case Incident = 'incident';
 
+    /**
+     * A scheduled task started missing, overrunning or failing, or the
+     * scheduler stopped — new, or back after it had cleared.
+     */
+    case ScheduledTask = 'scheduled_task';
+
     /** Share of requests ending 5xx, over the window. */
     case ErrorRate = 'error_rate';
 
@@ -46,6 +52,7 @@ enum AlertType: string
             self::Regression => 'Regression',
             self::IssueSpike => 'Issue spike',
             self::Incident => 'Incident opened',
+            self::ScheduledTask => 'Scheduled task',
             self::ErrorRate => 'Error rate',
             self::LatencyP95 => 'Latency (p95)',
             self::Throughput => 'Throughput',
@@ -69,6 +76,6 @@ enum AlertType: string
      */
     public function isEvent(): bool
     {
-        return in_array($this, [self::NewIssue, self::Regression, self::Incident], true);
+        return in_array($this, [self::NewIssue, self::Regression, self::Incident, self::ScheduledTask], true);
     }
 }

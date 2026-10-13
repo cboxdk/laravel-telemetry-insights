@@ -57,6 +57,30 @@ never drops an error between passes.
 | `notify.slack.webhook_url` | `TELEMETRY_INSIGHTS_SLACK_WEBHOOK` | — | |
 | `notify.webhook.url` | `TELEMETRY_INSIGHTS_WEBHOOK_URL` | — | |
 
+## Scheduled tasks
+
+See [scheduled tasks](../core-concepts/scheduled-tasks.md).
+
+| Key | Env | Default | |
+| --- | --- | --- | --- |
+| `scheduled_tasks.enabled` | `TELEMETRY_INSIGHTS_SCHEDULED_TASKS` | `true` | Read the scheduler's gauges on each scan |
+| `scheduled_tasks.scheduler_stopped_after_seconds` | `TELEMETRY_INSIGHTS_SCHEDULER_STOPPED_AFTER` | `180` | `schedule:run` silent this long is a stopped scheduler |
+| `scheduled_tasks.missed_after_seconds` | `TELEMETRY_INSIGHTS_TASK_MISSED_AFTER` | `300` | Due this long before its last run is a miss |
+| `scheduled_tasks.listed_within_seconds` | — | `600` | Not listed by `schedule:run` for this long: left the schedule, not missed |
+| `scheduled_tasks.overrun_after_seconds` | `TELEMETRY_INSIGHTS_TASK_OVERRUN_AFTER` | `3600` | A run older than this is overrunning |
+| `scheduled_tasks.failure_threshold` | `TELEMETRY_INSIGHTS_TASK_FAILURE_THRESHOLD` | `1` | Failures in a row before a failing task is an issue |
+| `scheduled_tasks.max_failure_probes` | — | `20` | Streak reads per pass — this bounds the cost |
+| `scheduled_tasks.tasks` | — | `[]` | Per-task overrides, by name or `*` pattern |
+
+## Agent tools
+
+See [agent tools](../extension-points/agent-tools.md).
+
+| Key | Env | Default | |
+| --- | --- | --- | --- |
+| `mcp.enabled` | `TELEMETRY_INSIGHTS_MCP` | `true` | Add the ledger tools to the dashboard's MCP server |
+| `mcp.writes` | `TELEMETRY_INSIGHTS_MCP_WRITES` | `true` | Off registers the read tools only |
+
 ## Announcements
 
 | Key | Env | Default | |
@@ -64,6 +88,8 @@ never drops an error between passes.
 | `announce.new_issues` | `TELEMETRY_INSIGHTS_ANNOUNCE_NEW` | `true` | |
 | `announce.regressions` | `TELEMETRY_INSIGHTS_ANNOUNCE_REGRESSIONS` | `true` | |
 | `announce.incidents` | `TELEMETRY_INSIGHTS_ANNOUNCE_INCIDENTS` | `true` | |
+| `announce.scheduled_tasks` | `TELEMETRY_INSIGHTS_ANNOUNCE_SCHEDULED_TASKS` | `true` | |
+| `announce.recoveries` | `TELEMETRY_INSIGHTS_ANNOUNCE_RECOVERIES` | `true` | A scheduled-task issue that cleared, when the problem was announced |
 
 Off means recorded silently, not ignored.
 
@@ -85,5 +111,6 @@ Set one to an empty string to schedule that job yourself.
 | `tables.incidents` | `telemetry_incidents` |
 | `tables.alert_rules` | `telemetry_alert_rules` |
 | `tables.alert_events` | `telemetry_alert_events` |
+| `tables.issue_events` | `telemetry_issue_events` |
 
 Renaming a table here is enough; the migration reads the same config.

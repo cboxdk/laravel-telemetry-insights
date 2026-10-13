@@ -8,6 +8,7 @@ weight: 20
 
 - [Architecture](architecture.md) — the layers, and why state lives here.
 - [Issues](issues.md) — the ledger, and what makes something news.
+- [Scheduled tasks](scheduled-tasks.md) — the runs that never happened.
 - [Incidents](incidents.md) — folding a burst of errors into one event.
 - [Alerting](alerting.md) — rules, measurements and cooldowns.
 - [Digests](digests.md) — findings, ranked, and the brief.

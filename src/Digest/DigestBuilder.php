@@ -8,7 +8,12 @@ use Cbox\TelemetryInsights\Contracts\CorrelatesIncidents;
 use Cbox\TelemetryInsights\Correlate\Incident;
 use Cbox\TelemetryInsights\Issues\ChangeKind;
 use Cbox\TelemetryInsights\Issues\IssueChange;
+use Cbox\TelemetryInsights\Issues\IssueKind;
 use Cbox\TelemetryInsights\Issues\IssueLedger;
+use Cbox\TelemetryInsights\Issues\IssueStatus;
+use Cbox\TelemetryInsights\Models\Issue;
+use Cbox\TelemetryInsights\Schedule\ScheduleMonitor;
+use Cbox\TelemetryInsights\Schedule\ScheduleProblem;
 use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryUi\Connectors\ConnectionManager;
 use Cbox\TelemetryUi\Connectors\SourceException;
@@ -35,6 +40,7 @@ class DigestBuilder
         private readonly IssueLedger $ledger,
         private readonly ConnectionManager $connections,
         private readonly Setting $settings,
+        private readonly ?ScheduleMonitor $schedule = null,
     ) {}
 
     public function build(RequestScope $scope): Digest
@@ -44,6 +50,7 @@ class DigestBuilder
         $findings = [
             ...$this->incidents($scope),
             ...$this->issues($scope),
+            ...$this->scheduledTasks($scope),
             ...$this->slowRoutes($scope),
             ...$this->queries($scope, $start, $end),
         ];
@@ -108,6 +115,72 @@ class DigestBuilder
         return $findings;
     }
 
+    /**
+     * What is wrong with the schedule right now. A digest is a snapshot of
+     * the window, and a task that stopped running on Tuesday is still the
+     * most important thing in Friday's digest — so this reports the current
+     * condition, not only what changed. Problems the team ignored, or
+     * snoozed, stay out.
+     *
+     * @return list<Finding>
+     */
+    private function scheduledTasks(RequestScope $scope): array
+    {
+        // Optional in the constructor for subclasses written against 1.0;
+        // the container does not fill a nullable parameter, so resolve it.
+        $reading = ($this->schedule ?? app(ScheduleMonitor::class))->read($scope);
+
+        if ($reading === null || $reading->problems === []) {
+            return [];
+        }
+
+        $byFingerprint = [];
+
+        foreach ($reading->problems as $problem) {
+            $byFingerprint[$problem->fingerprint()] = $problem;
+        }
+
+        $quiet = Issue::query()
+            ->whereIn('fingerprint', array_keys($byFingerprint))
+            ->get()
+            ->filter(static fn (Issue $issue): bool => in_array($issue->effectiveStatus(), [IssueStatus::Ignored, IssueStatus::Snoozed], true))
+            ->keyBy('fingerprint');
+
+        $findings = [];
+
+        foreach ($byFingerprint as $fingerprint => $problem) {
+            if ($quiet->has($fingerprint)) {
+                continue;
+            }
+
+            $findings[] = $this->scheduleFinding((string) $fingerprint, $problem);
+        }
+
+        return $findings;
+    }
+
+    private function scheduleFinding(string $fingerprint, ScheduleProblem $problem): Finding
+    {
+        return new Finding(
+            kind: FindingKind::ScheduledTask,
+            title: $problem->title(),
+            detail: $problem->summary,
+            facts: array_filter([
+                'Fingerprint' => $fingerprint,
+                'Service' => $problem->service,
+                'Environment' => $problem->environment,
+                'Task' => $problem->task ?? '',
+                ...$problem->facts,
+            ], static fn (string $v): bool => $v !== ''),
+            // The scheduler stopping outranks any one task: it IS every task.
+            magnitude: match ($problem->kind) {
+                IssueKind::SchedulerStopped => 999.0,
+                IssueKind::TaskFailing => $problem->magnitude * 60,
+                default => $problem->magnitude / 60,
+            },
+        );
+    }
+
     private function issueFinding(IssueChange $change): Finding
     {
         $issue = $change->issue;
@@ -115,7 +188,7 @@ class DigestBuilder
 
         return new Finding(
             kind: $regression ? FindingKind::Regression : FindingKind::NewIssue,
-            title: ($issue->type ?? 'Exception').($regression ? ' is back' : ' is new'),
+            title: $issue->title().($regression ? ' is back' : ' is new'),
             detail: (string) ($issue->message ?? ''),
             facts: array_filter([
                 'Fingerprint' => $issue->fingerprint,

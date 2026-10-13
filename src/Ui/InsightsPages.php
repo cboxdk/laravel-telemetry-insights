@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Ui;
 
+use Cbox\TelemetryInsights\Mcp\Tools\IgnoreIssueTool;
+use Cbox\TelemetryInsights\Mcp\Tools\ListIssuesTool;
+use Cbox\TelemetryInsights\Mcp\Tools\ReopenIssueTool;
+use Cbox\TelemetryInsights\Mcp\Tools\ResolveIssueTool;
+use Cbox\TelemetryInsights\Mcp\Tools\ShowIssueTool;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\TelemetryUiManager;
@@ -37,6 +42,25 @@ final class InsightsPages
         TelemetryUi::panel(Panels\IssuesTable::class, page: 'issues');
 
         self::routes();
+        self::agentTools();
+    }
+
+    /**
+     * The ledger as tools on the dashboard's own MCP server, so an agent
+     * that can already read the traces can also see — and act on — what the
+     * team has decided about them. Class-strings only: nothing is built
+     * until a client lists the tools. The write tools hide themselves when
+     * `telemetry-insights.mcp.writes` is off.
+     */
+    private static function agentTools(): void
+    {
+        if (! (bool) config('telemetry-insights.mcp.enabled', true)) {
+            return;
+        }
+
+        foreach ([ListIssuesTool::class, ShowIssueTool::class, ResolveIssueTool::class, IgnoreIssueTool::class, ReopenIssueTool::class] as $tool) {
+            TelemetryUi::mcpTool($tool);
+        }
     }
 
     /**

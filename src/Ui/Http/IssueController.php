@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Ui\Http;
 
+use Cbox\TelemetryInsights\Issues\ActionSource;
+use Cbox\TelemetryInsights\Issues\Attribution;
 use Cbox\TelemetryInsights\Issues\IssueActions;
+use Cbox\TelemetryInsights\Issues\IssueKind;
 use Cbox\TelemetryInsights\Issues\IssueStatus;
 use Cbox\TelemetryInsights\Models\Issue;
 use Cbox\TelemetryUi\Http\Api\ApiError;
@@ -25,9 +28,12 @@ final class IssueController
     {
         $status = $request->query('status');
         $status = is_string($status) && $status !== '' ? IssueStatus::tryFrom($status) : null;
+        $kind = $request->query('kind');
+        $kind = is_string($kind) && $kind !== '' ? IssueKind::tryFrom($kind) : null;
 
         $issues = Issue::query()
             ->when($status !== null, static fn ($query) => $query->where('status', $status?->value))
+            ->when($kind !== null, static fn ($query) => $query->where('kind', $kind?->value))
             ->orderByRaw("case when status = 'open' then 0 else 1 end")
             ->orderByDesc('last_seen_at')
             ->limit(100)
@@ -59,12 +65,14 @@ final class IssueController
             return ApiError::invalid('An action is required.');
         }
 
+        $as = new Attribution(ActionSource::Api, self::text($request, 'by') ?? self::user($request), self::text($request, 'comment'));
+
         $updated = match ($action) {
-            'resolve' => $actions->resolve($issue, self::text($request, 'by'), self::text($request, 'release')),
-            'reopen' => $actions->reopen($issue),
-            'ignore' => $actions->ignore($issue),
-            'snooze' => $actions->snooze($issue, self::until($request)),
-            'assign' => $actions->assign($issue, self::text($request, 'to')),
+            'resolve' => $actions->resolve($issue, $as->actor, self::text($request, 'release'), $as),
+            'reopen' => $actions->reopen($issue, $as),
+            'ignore' => $actions->ignore($issue, $as),
+            'snooze' => $actions->snooze($issue, self::until($request), $as),
+            'assign' => $actions->assign($issue, self::text($request, 'to'), $as),
             default => null,
         };
 
@@ -82,10 +90,14 @@ final class IssueController
     {
         return [
             'fingerprint' => $issue->fingerprint,
+            'kind' => $issue->kind()->value,
+            'title' => $issue->title(),
             'status' => $issue->effectiveStatus()->value,
             'type' => $issue->type,
             'message' => $issue->message,
             'service' => $issue->service,
+            'environment' => $issue->environment,
+            'task' => $issue->subject,
             'assignee' => $issue->assignee,
             'lastSeen' => $issue->last_seen_at?->toIso8601String(),
             'firstRecorded' => $issue->first_recorded_at?->toIso8601String(),
@@ -93,6 +105,28 @@ final class IssueController
             'resolvedAt' => $issue->resolved_at?->toIso8601String(),
             'resolvedIn' => $issue->resolved_in_release,
         ];
+    }
+
+    /** The signed-in user, as the history should name them. */
+    private static function user(Request $request): ?string
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return null;
+        }
+
+        foreach (['email', 'name'] as $attribute) {
+            $value = data_get($user, $attribute);
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        $id = $user->getAuthIdentifier();
+
+        return is_scalar($id) ? 'user #'.$id : null;
     }
 
     private static function text(Request $request, string $key): ?string

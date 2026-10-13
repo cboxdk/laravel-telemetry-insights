@@ -4,22 +4,29 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Models;
 
+use Cbox\TelemetryInsights\Issues\IssueKind;
 use Cbox\TelemetryInsights\Issues\IssueStatus;
 use Cbox\TelemetryInsights\Support\Tables;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
  * A team's decision about one error group, keyed on the fingerprint the
- * telemetry store already groups by.
+ * telemetry store already groups by — or about one scheduled task's
+ * condition, keyed on a fingerprint of the task (see {@see IssueKind}).
  *
  * This row is an overlay, not a copy: the occurrences, stack traces and
  * counts are read from the store every time. Deleting this row loses the
- * status and nothing else.
+ * status and its history, nothing else.
  *
  * @property int $id
  * @property string $fingerprint
+ * @property IssueKind $kind
  * @property IssueStatus $status
+ * @property string|null $subject
+ * @property string|null $environment
+ * @property string|null $last_trace_id
  * @property string|null $type
  * @property string|null $message
  * @property string|null $service
@@ -48,6 +55,7 @@ class Issue extends Model
     protected function casts(): array
     {
         return [
+            'kind' => IssueKind::class,
             'status' => IssueStatus::class,
             'first_recorded_at' => 'immutable_datetime',
             'last_seen_at' => 'immutable_datetime',
@@ -55,6 +63,47 @@ class Issue extends Model
             'resolved_at' => 'immutable_datetime',
             'notified_at' => 'immutable_datetime',
         ];
+    }
+
+    /**
+     * Every decision made about this issue, oldest first.
+     *
+     * @return HasMany<IssueEvent, $this>
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(IssueEvent::class)->orderBy('id');
+    }
+
+    /**
+     * What to call it in a notification, a list or a brief: the exception
+     * class for an error group, the condition and task for a schedule.
+     */
+    public function title(): string
+    {
+        $kind = $this->kind();
+
+        if (! $kind->isScheduled()) {
+            return $this->type ?? 'Exception';
+        }
+
+        $subject = $this->subject ?? '';
+
+        if ($subject !== '') {
+            return $kind->label().': '.$subject;
+        }
+
+        $where = implode(' · ', array_filter([$this->service ?? '', $this->environment ?? '']));
+
+        return $where === '' ? $kind->label() : $kind->label().' on '.$where;
+    }
+
+    /** The kind, defaulting rows written before kinds existed. */
+    public function kind(): IssueKind
+    {
+        $kind = $this->getAttribute('kind');
+
+        return $kind instanceof IssueKind ? $kind : IssueKind::Exception;
     }
 
     /**
