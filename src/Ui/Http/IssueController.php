@@ -9,6 +9,7 @@ use Cbox\TelemetryInsights\Issues\Attribution;
 use Cbox\TelemetryInsights\Issues\IssueActions;
 use Cbox\TelemetryInsights\Issues\IssueKind;
 use Cbox\TelemetryInsights\Issues\IssueStatus;
+use Cbox\TelemetryInsights\Issues\IssueVisibility;
 use Cbox\TelemetryInsights\Models\Issue;
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Illuminate\Http\JsonResponse;
@@ -24,14 +25,14 @@ use Illuminate\Support\Facades\Gate;
  */
 final class IssueController
 {
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, IssueVisibility $visibility): JsonResponse
     {
         $status = $request->query('status');
         $status = is_string($status) && $status !== '' ? IssueStatus::tryFrom($status) : null;
         $kind = $request->query('kind');
         $kind = is_string($kind) && $kind !== '' ? IssueKind::tryFrom($kind) : null;
 
-        $issues = Issue::query()
+        $issues = $visibility->query()
             ->when($status !== null, static fn ($query) => $query->where('status', $status?->value))
             ->when($kind !== null, static fn ($query) => $query->where('kind', $kind?->value))
             ->orderByRaw("case when status = 'open' then 0 else 1 end")
@@ -47,13 +48,14 @@ final class IssueController
     /**
      * `POST issues/{fingerprint}` with `{"action": "resolve"}`.
      */
-    public function update(Request $request, IssueActions $actions, string $fingerprint): JsonResponse
+    public function update(Request $request, IssueActions $actions, IssueVisibility $visibility, string $fingerprint): JsonResponse
     {
         if (! Gate::allows('manageTelemetryUi')) {
             return ApiError::forbidden('You are not authorized to change issues.');
         }
 
-        $issue = Issue::query()->firstWhere('fingerprint', $fingerprint);
+        // Outside the viewer's lock reads as not there at all.
+        $issue = $visibility->query()->firstWhere('fingerprint', $fingerprint);
 
         if (! $issue instanceof Issue) {
             return ApiError::notFound('No issue recorded for that fingerprint.');
@@ -73,11 +75,16 @@ final class IssueController
             'ignore' => $actions->ignore($issue, $as),
             'snooze' => $actions->snooze($issue, self::until($request), $as),
             'assign' => $actions->assign($issue, self::text($request, 'to'), $as),
+            'archive' => self::archive($actions, $issue, $as),
             default => null,
         };
 
+        if ($action === 'archive' && ! $updated instanceof Issue) {
+            return ApiError::invalid('Only error groups can be archived until escalating.');
+        }
+
         if (! $updated instanceof Issue) {
-            return ApiError::invalid('Unknown action ['.$action.']. Use resolve, reopen, ignore, snooze or assign.');
+            return ApiError::invalid('Unknown action ['.$action.']. Use resolve, reopen, ignore, snooze, archive or assign.');
         }
 
         return new JsonResponse(['issue' => self::payload($updated)]);
@@ -104,7 +111,19 @@ final class IssueController
             'snoozedUntil' => $issue->snoozed_until?->toIso8601String(),
             'resolvedAt' => $issue->resolved_at?->toIso8601String(),
             'resolvedIn' => $issue->resolved_in_release,
+            'escalation' => $issue->status === IssueStatus::Archived
+                ? ['spikeLimit' => $issue->escalation_spike_limit, 'burstLimit' => $issue->escalation_burst_limit]
+                : null,
         ];
+    }
+
+    private static function archive(IssueActions $actions, Issue $issue, Attribution $as): ?Issue
+    {
+        try {
+            return $actions->archive($issue, $as);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
     }
 
     /** The signed-in user, as the history should name them. */

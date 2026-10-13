@@ -20,19 +20,25 @@ final readonly class ScanResult
         public int $scheduleNews = 0,
         /** Scheduled-task issues resolved because the condition cleared. */
         public int $recovered = 0,
+        /** Archived error groups that escalated and reopened. */
+        public int $escalated = 0,
+        /** Open error groups resolved for having gone quiet. */
+        public int $staleResolved = 0,
     ) {}
 
     public function summary(): string
     {
         return sprintf(
-            '%d issue(s) seen · %d new · %d regressed · %d spiking · %d incident(s) · %d schedule problem(s), %d recovered · %d announced',
+            '%d issue(s) seen · %d new · %d regressed · %d escalated · %d spiking · %d incident(s) · %d schedule problem(s), %d recovered · %d resolved as stale · %d announced',
             $this->issuesSeen,
             $this->newIssues,
             $this->regressions,
+            $this->escalated,
             $this->spikes,
             $this->incidents,
             $this->scheduleProblems,
             $this->recovered,
+            $this->staleResolved,
             $this->announced,
         );
     }

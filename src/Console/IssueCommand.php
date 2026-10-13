@@ -23,7 +23,7 @@ final class IssueCommand extends Command
     public const NAME = 'telemetry-insights:issue';
 
     protected $signature = self::NAME
-        .' {action : resolve, reopen, ignore, snooze or assign}'
+        .' {action : resolve, reopen, ignore, snooze, archive or assign}'
         .' {fingerprint : the error group id, or a unique prefix of it}'
         .' {--release= : the release a fix shipped in (resolve)}'
         .' {--until= : when a snooze lapses, e.g. "3 days" (snooze)}'
@@ -31,7 +31,7 @@ final class IssueCommand extends Command
         .' {--by= : who is doing this — recorded in the history}'
         .' {--comment= : why — recorded in the history}';
 
-    protected $description = 'Resolve, reopen, ignore, snooze or assign an error group.';
+    protected $description = 'Resolve, reopen, ignore, snooze, archive (until escalating) or assign an issue.';
 
     public function handle(IssueActions $actions): int
     {
@@ -54,11 +54,12 @@ final class IssueCommand extends Command
             'ignore' => $actions->ignore($issue, $as),
             'snooze' => $actions->snooze($issue, $this->until(), $as),
             'assign' => $actions->assign($issue, $this->stringOption('to'), $as),
+            'archive' => $this->archive($actions, $issue, $as),
             default => null,
         };
 
         if (! $updated instanceof Issue) {
-            $this->error('Unknown action ['.$action.']. Use resolve, reopen, ignore, snooze or assign.');
+            $this->error('Unknown action ['.$action.']. Use resolve, reopen, ignore, snooze, archive or assign.');
 
             return self::FAILURE;
         }
@@ -70,11 +71,27 @@ final class IssueCommand extends Command
             $updated->effectiveStatus()->label(),
         ));
 
+        if ($updated->effectiveStatus() === IssueStatus::Archived) {
+            $this->line('  <fg=gray>It reopens on its own if it escalates: over '.$updated->escalation_spike_limit
+                .' an hour for a sustained span, or '.$updated->escalation_burst_limit.' in any one hour.</>');
+        }
+
         if ($updated->effectiveStatus() === IssueStatus::Resolved) {
             $this->line('  <fg=gray>It will be reported as a regression if it fires again.</>');
         }
 
         return self::SUCCESS;
+    }
+
+    private function archive(IssueActions $actions, Issue $issue, Attribution $as): ?Issue
+    {
+        try {
+            return $actions->archive($issue, $as);
+        } catch (\InvalidArgumentException $e) {
+            $this->error($e->getMessage());
+
+            return null;
+        }
     }
 
     /** Exact match first, then a unique prefix — fingerprints are long. */

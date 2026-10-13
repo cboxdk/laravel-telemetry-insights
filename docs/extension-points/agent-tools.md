@@ -30,6 +30,9 @@ or the dashboard's web endpoint, when `telemetry-ui.mcp.web.enabled` is on.
 | `resolve_issue` | Mark it fixed, with an optional `comment` and `release` |
 | `ignore_issue` | Never announce it again, with an optional `comment` |
 | `reopen_issue` | Back on the working list, with an optional `comment` |
+| `archive_issue` | Quiet until it escalates (error groups only) — see [issues](../core-concepts/issues.md#archive-until-escalating) |
+| `profiling_rotation` | Read-only: what the [profiling rotation](../core-concepts/profiling.md) and ad-hoc directives placed, which are active, the settings; `next=true` ranks the next picks |
+| `request_directive` | Keep (and optionally profile) one slice of a monitored app's traffic for a while: `match` route/path/user/context/job, `value`, `key` for context, `minutes`, `profile`, `reason`, `service` |
 
 Every tool accepts a unique prefix of a fingerprint; an ambiguous one is
 refused rather than guessed at. Output is built for a reader that pays per
@@ -57,6 +60,8 @@ status that changed with no explanation.
   the local stdio server is trusted — it runs under artisan, for someone
   who could run `telemetry-insights:issue` in the same shell. An HTTP
   request with no user is refused.
+- `request_directive` is a write too, with the same gate. A viewer locked
+  to some services may only target those, and must name one.
 - `telemetry-insights.mcp.writes = false` registers the read tools only;
   `telemetry-insights.mcp.enabled = false` registers none.
 

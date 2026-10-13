@@ -38,7 +38,7 @@ this one follows by changing an import, not by being rewritten.
 | | |
 | --- | --- |
 | Occurrences, stack traces, spans, metrics | Your telemetry stores. Read on demand, never copied |
-| Status, assignee, snooze, cooldown, what we paged about, who decided what | Five tables here |
+| Status, assignee, snooze, cooldown, what we paged about, who decided what | Six tables here |
 
 This is why the dashboard's promise survives. `WritesToBackend` is about
 **your telemetry stores** — Tempo, Loki, Prometheus, ClickHouse. A local

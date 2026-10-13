@@ -9,10 +9,8 @@ use Cbox\TelemetryInsights\Issues\IssueActions;
 use Cbox\TelemetryInsights\Models\Issue;
 use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryUi\Support\ScopeLock;
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\JsonSchema\JsonSchema as JsonSchemaFactory;
-use Illuminate\Support\Facades\Gate;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 
@@ -30,6 +28,8 @@ use Laravel\Mcp\Response;
  */
 abstract class ChangeIssueTool extends LedgerTool
 {
+    use AuthorizesWrites;
+
     public function __construct(
         ScopeLock $lock,
         protected readonly IssueActions $actions,
@@ -61,7 +61,7 @@ abstract class ChangeIssueTool extends LedgerTool
 
     public function handle(Request $request): Response
     {
-        $refusal = $this->authorize($request);
+        $refusal = $this->refuseUnlessAllowed($request, $this->verb().' issues');
 
         if ($refusal !== null) {
             return $refusal;
@@ -74,7 +74,12 @@ abstract class ChangeIssueTool extends LedgerTool
         }
 
         $as = Attribution::agent($this->actor($request), $this->string($request, 'comment'));
-        $updated = $this->apply($issue, $as, $request);
+
+        try {
+            $updated = $this->apply($issue, $as, $request);
+        } catch (\InvalidArgumentException $e) {
+            return Response::error($e->getMessage());
+        }
 
         return Response::text(sprintf(
             '%s `%s` (%s). Status is now %s; recorded in its history as made via agent%s.',
@@ -89,20 +94,5 @@ abstract class ChangeIssueTool extends LedgerTool
     protected function past(): string
     {
         return $this->verb().'d';
-    }
-
-    private function authorize(Request $request): ?Response
-    {
-        $user = $request->user();
-
-        if ($user instanceof Authenticatable) {
-            return Gate::forUser($user)->allows('manageTelemetryUi')
-                ? null
-                : Response::error('Not authorized to '.$this->verb().' issues: that takes the manageTelemetryUi ability.');
-        }
-
-        return app()->runningInConsole()
-            ? null
-            : Response::error('Not authorized to '.$this->verb().' issues: this transport has no authenticated user.');
     }
 }

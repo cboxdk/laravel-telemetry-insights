@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Mcp\Tools;
 
+use Cbox\TelemetryInsights\Issues\IssueVisibility;
 use Cbox\TelemetryInsights\Models\Issue;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -37,15 +38,7 @@ abstract class LedgerTool extends Tool
      */
     protected function visible(Builder $query): Builder
     {
-        if ($this->lock->servicesLocked()) {
-            $query->whereIn('service', $this->lock->services());
-        }
-
-        if ($this->lock->environmentsLocked()) {
-            $query->whereIn('environment', $this->lock->environments());
-        }
-
-        return $query;
+        return (new IssueVisibility($this->lock))->apply($query);
     }
 
     /**

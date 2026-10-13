@@ -125,6 +125,92 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Escalation (archive until escalating)
+    |--------------------------------------------------------------------------
+    |
+    | An archived error group stays quiet until its hourly volume goes past
+    | what it did in the baseline_days before it was archived:
+    |
+    | - over the SPIKE limit (95th-percentile hour × spike_factor) for
+    |   sustained_hours running — a real, lasting rise; or
+    | - over the BURST limit (worst hour × burst_factor) in any one hour —
+    |   something it has never done. A nightly job's usual burst sets the
+    |   peak, so its next one does not reopen anything.
+    |
+    | Neither limit goes below min_volume. Learning reads up to sample_limit
+    | exception records once, when the issue is archived.
+    |
+    */
+
+    'escalation' => [
+        'baseline_days' => 7,
+        'spike_factor' => 3.0,
+        'burst_factor' => 1.5,
+        'sustained_hours' => 2,
+        'min_volume' => (int) env('TELEMETRY_INSIGHTS_ESCALATION_MIN', 10),
+        'sample_limit' => 10000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Stale issues
+    |--------------------------------------------------------------------------
+    |
+    | Open error groups with no occurrence for this many days (7, 14 or 30
+    | are sensible) are resolved by the scan and recorded as automatic. A
+    | later occurrence reopens one as a regression.
+    |
+    */
+
+    'stale' => [
+        'enabled' => (bool) env('TELEMETRY_INSIGHTS_STALE_RESOLVE', true),
+        'resolve_after_days' => (int) env('TELEMETRY_INSIGHTS_STALE_DAYS', 14),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Profiling (directives)
+    |--------------------------------------------------------------------------
+    |
+    | Time-limited directives on the monitored apps: "keep every trace of
+    | this route (and CPU-profile it) for 15 minutes". Needs a
+    | cboxdk/laravel-telemetry with directives in the app being watched.
+    |
+    | Reaching it: an app listed under "targets" gets the signed HTTP
+    | endpoint at its url, with the secret it has as
+    | TELEMETRY_DIRECTIVES_SECRET. With no target for a service, and
+    | laravel-telemetry running in THIS app, directives go straight into its
+    | store.
+    |
+    |   'targets' => [
+    |       'shop' => ['url' => env('SHOP_URL'), 'secret' => env('SHOP_DIRECTIVES_SECRET')],
+    |   ],
+    |
+    | The rotation profiles the top "routes" routes by impact ("total_time":
+    | seconds spent in the route over "lookback"; or "p95_rate": p95 ×
+    | requests per second) that were not profiled in the last
+    | "cooldown_hours", for "minutes" each. COST: every request on those
+    | routes is kept and profiled for those minutes. Off by default.
+    |
+    */
+
+    'profiling' => [
+        'targets' => [],
+        'timeout' => 5,
+
+        'rotation' => [
+            'enabled' => (bool) env('TELEMETRY_INSIGHTS_PROFILING', false),
+            'routes' => (int) env('TELEMETRY_INSIGHTS_PROFILING_ROUTES', 3),
+            'minutes' => (int) env('TELEMETRY_INSIGHTS_PROFILING_MINUTES', 15),
+            'profile' => true,
+            'impact' => env('TELEMETRY_INSIGHTS_PROFILING_IMPACT', 'total_time'),
+            'lookback' => '24h',
+            'cooldown_hours' => (int) env('TELEMETRY_INSIGHTS_PROFILING_COOLDOWN', 24),
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Agent tools (MCP)
     |--------------------------------------------------------------------------
     |
@@ -199,6 +285,7 @@ return [
         // A scheduled-task issue that cleared on its own, when the problem
         // itself was announced.
         'recoveries' => (bool) env('TELEMETRY_INSIGHTS_ANNOUNCE_RECOVERIES', true),
+        'escalations' => (bool) env('TELEMETRY_INSIGHTS_ANNOUNCE_ESCALATIONS', true),
     ],
 
     /*
@@ -215,6 +302,8 @@ return [
         'scan' => env('TELEMETRY_INSIGHTS_SCAN_CRON', '*/5 * * * *'),
         'alerts' => env('TELEMETRY_INSIGHTS_ALERTS_CRON', '*/5 * * * *'),
         'digest' => env('TELEMETRY_INSIGHTS_DIGEST_CRON', '0 8 * * 1'),
+        // Only registered while profiling.rotation.enabled is true.
+        'profiling' => env('TELEMETRY_INSIGHTS_PROFILING_CRON', '0 */4 * * *'),
     ],
 
     /*
@@ -229,6 +318,7 @@ return [
         'alert_rules' => 'telemetry_alert_rules',
         'alert_events' => 'telemetry_alert_events',
         'issue_events' => 'telemetry_issue_events',
+        'profiling_runs' => 'telemetry_profiling_runs',
     ],
 
 ];

@@ -26,6 +26,7 @@ class IssueLedger
     public function __construct(
         private readonly ErrorExplorer $errors,
         private readonly IssueActions $actions = new IssueActions,
+        private readonly ?EscalationWatch $escalation = null,
     ) {}
 
     /**
@@ -162,6 +163,10 @@ class IssueLedger
      */
     private function existing(Issue $issue, array $data, Carbon $lastSeen, bool $persist): IssueChange
     {
+        if ($issue->status === IssueStatus::Archived) {
+            return $this->archived($issue, $data, $lastSeen, $persist);
+        }
+
         $regressed = $issue->isRegression($lastSeen);
 
         $issue->forceFill([
@@ -182,5 +187,34 @@ class IssueLedger
         }
 
         return new IssueChange($issue, $regressed ? ChangeKind::Regression : ChangeKind::Recurring, $data['count']);
+    }
+
+    /**
+     * An archived group that fired: still archived unless it escalated past
+     * the limits it learned when it was archived. Only checked when it
+     * fired at all, so a quiet archive costs nothing.
+     *
+     * @param  array{type: string, message: string, service: string, count: int, latest: int, traceId: string|null}  $data
+     */
+    private function archived(Issue $issue, array $data, Carbon $lastSeen, bool $persist): IssueChange
+    {
+        $escalation = ($this->escalation ?? app(EscalationWatch::class))->check($issue);
+
+        $issue->forceFill([
+            'last_seen_at' => $lastSeen,
+            'last_trace_id' => $data['traceId'] ?? $issue->last_trace_id,
+            'status' => $escalation !== null ? IssueStatus::Open : IssueStatus::Archived,
+            'archived_at' => $escalation !== null ? null : $issue->archived_at,
+        ]);
+
+        if ($persist) {
+            $issue->save();
+
+            if ($escalation !== null) {
+                $this->actions->log($issue, IssueAction::Escalated, Attribution::scan('Escalated: '.$escalation->reason));
+            }
+        }
+
+        return new IssueChange($issue, $escalation !== null ? ChangeKind::Escalated : ChangeKind::Recurring, $data['count']);
     }
 }

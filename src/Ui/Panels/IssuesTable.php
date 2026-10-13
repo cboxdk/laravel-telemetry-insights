@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryInsights\Ui\Panels;
 
 use Cbox\TelemetryInsights\Issues\IssueStatus;
+use Cbox\TelemetryInsights\Issues\IssueVisibility;
 use Cbox\TelemetryInsights\Models\Issue;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
@@ -36,7 +37,8 @@ class IssuesTable extends Panel
      */
     public function data(): array
     {
-        $issues = Issue::query()
+        // The viewer's tenancy lock, failing closed — see IssueVisibility.
+        $issues = app(IssueVisibility::class)->query()
             ->orderByRaw("case when status = 'open' then 0 else 1 end")
             ->orderByDesc('last_seen_at')
             ->limit(100)
@@ -92,6 +94,7 @@ class IssuesTable extends Panel
             ? [
                 Ui::action('Resolve', $endpoint, ['action' => 'resolve']),
                 Ui::action('Snooze for a day', $endpoint, ['action' => 'snooze', 'until' => '1 day']),
+                ...($issue->kind()->isScheduled() ? [] : [Ui::action('Archive until escalating', $endpoint, ['action' => 'archive'])]),
                 Ui::action('Ignore', $endpoint, ['action' => 'ignore'],
                     confirm: 'Ignore this for good? It will never be announced again.', tone: 'danger'),
             ]

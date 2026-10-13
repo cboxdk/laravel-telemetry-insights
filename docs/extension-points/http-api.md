@@ -39,6 +39,12 @@ A refusal is the dashboard's error shape:
 with `not_found` (404) and `invalid` (422) for the other two ways a request
 can be wrong.
 
+Both read and write follow the dashboard's tenancy lock: a viewer locked to
+some services or environments sees, and can change, only those issues; an
+issue outside the lock is a 404. It fails closed — a lock to nothing shows
+nothing, and an error group (which has no environment) is hidden from a
+viewer whose environments are locked.
+
 ## Changing an issue
 
 ```http
@@ -59,6 +65,7 @@ signed-in user.
 | `ignore` | — |
 | `snooze` | `until` (e.g. `"3 days"`; a day when omitted) |
 | `assign` | `to` |
+| `archive` | — (error groups only; 422 otherwise) |
 
 The response carries the issue as the list returns it, with `status`
 already the **effective** one — a lapsed snooze reads as open, here as
@@ -96,7 +103,8 @@ An issue:
   "firstRecorded": "2026-09-24T02:14:55+00:00",
   "snoozedUntil": null,
   "resolvedAt": null,
-  "resolvedIn": null
+  "resolvedIn": null,
+  "escalation": null
 }
 ```
 

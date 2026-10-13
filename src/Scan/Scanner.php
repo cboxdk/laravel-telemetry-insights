@@ -16,6 +16,7 @@ use Cbox\TelemetryInsights\Issues\IssueLedger;
 use Cbox\TelemetryInsights\Issues\ScheduleLedger;
 use Cbox\TelemetryInsights\Issues\Spike;
 use Cbox\TelemetryInsights\Issues\SpikeDetector;
+use Cbox\TelemetryInsights\Issues\StaleIssues;
 use Cbox\TelemetryInsights\Models\AlertRule;
 use Cbox\TelemetryInsights\Notify\Notification;
 use Cbox\TelemetryInsights\Notify\Notifier;
@@ -57,6 +58,7 @@ class Scanner
 
         $new = $this->ofKind($changes, ChangeKind::New);
         $regressions = $this->ofKind($changes, ChangeKind::Regression);
+        $escalated = $this->ofKind($changes, ChangeKind::Escalated);
 
         $incidents = [];
 
@@ -71,6 +73,7 @@ class Scanner
         $announced = 0;
         $announced += $this->announceIssues($new, ChangeKind::New);
         $announced += $this->announceIssues($regressions, ChangeKind::Regression);
+        $announced += $this->announceIssues($escalated, ChangeKind::Escalated);
         $announced += $this->announceIncidents($incidents);
 
         $spikes = $this->spikes($scope, $changes);
@@ -86,6 +89,8 @@ class Scanner
         $announced += $this->announceScheduled($scheduledNews);
         $announced += $this->announceRecoveries($recovered);
 
+        $stale = app(StaleIssues::class)->resolve($scope);
+
         return new ScanResult(
             issuesSeen: count($changes),
             newIssues: count($new),
@@ -96,6 +101,8 @@ class Scanner
             scheduleProblems: count(array_filter($scheduled, static fn (IssueChange $c): bool => $c->kind !== ChangeKind::Recovered)),
             scheduleNews: count($scheduledNews),
             recovered: count($recovered),
+            escalated: count($escalated),
+            staleResolved: count($stale),
         );
     }
 
@@ -261,7 +268,11 @@ class Scanner
      */
     private function announceIssues(array $changes, ChangeKind $kind): int
     {
-        $key = $kind === ChangeKind::New ? 'new_issues' : 'regressions';
+        $key = match ($kind) {
+            ChangeKind::New => 'new_issues',
+            ChangeKind::Escalated => 'escalations',
+            default => 'regressions',
+        };
 
         if ($changes === [] || ! (bool) $this->config->get('telemetry-insights.announce.'.$key, true)) {
             return 0;
@@ -277,12 +288,14 @@ class Scanner
                 continue;
             }
 
-            $regression = $kind === ChangeKind::Regression;
-
             $this->notifier->send(new Notification(
-                title: ($regression ? 'Regression: ' : 'New issue: ').($issue->type ?? 'Exception'),
+                title: match ($kind) {
+                    ChangeKind::Regression => 'Regression: ',
+                    ChangeKind::Escalated => 'Escalating: ',
+                    default => 'New issue: ',
+                }.($issue->type ?? 'Exception'),
                 body: (string) ($issue->message ?? ''),
-                severity: $regression ? Severity::Critical : Severity::Warning,
+                severity: $kind === ChangeKind::New ? Severity::Warning : Severity::Critical,
                 facts: array_filter([
                     'Service' => (string) ($issue->service ?? ''),
                     'Occurrences' => (string) $change->count,
@@ -297,7 +310,11 @@ class Scanner
         // A regression is its own alert type: it escaped a fix, which is a
         // different thing from something nobody has seen before.
         $this->fireEventRules(
-            $kind === ChangeKind::Regression ? AlertType::Regression : AlertType::NewIssue,
+            match ($kind) {
+                ChangeKind::Regression => AlertType::Regression,
+                ChangeKind::Escalated => AlertType::Escalation,
+                default => AlertType::NewIssue,
+            },
             $changes,
         );
 

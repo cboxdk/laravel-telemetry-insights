@@ -14,6 +14,8 @@ enum IssueAction: string
     case Snoozed = 'snoozed';
     case Reopened = 'reopened';
     case Assigned = 'assigned';
+    case Archived = 'archived';
+    case Escalated = 'escalated';
 
     public function label(): string
     {
@@ -25,6 +27,8 @@ enum IssueAction: string
             self::Snoozed => 'Snoozed',
             self::Reopened => 'Reopened',
             self::Assigned => 'Assigned',
+            self::Archived => 'Archived until escalating',
+            self::Escalated => 'Escalated',
         };
     }
 }

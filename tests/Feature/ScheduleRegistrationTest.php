@@ -39,3 +39,16 @@ it('leaves a job out when its cron is set to null', function (): void {
 
     expect($digest)->toBeEmpty();
 });
+
+it('schedules the profiling rotation only when it is turned on', function (): void {
+    $profiling = static fn (): int => collect(app(Schedule::class)->events())
+        ->filter(fn ($event): bool => str_contains((string) $event->command, 'telemetry-insights:profiling'))
+        ->count();
+
+    expect($profiling())->toBe(0);
+
+    config()->set('telemetry-insights.profiling.rotation.enabled', true);
+    app()->forgetInstance(Schedule::class);
+
+    expect($profiling())->toBe(1);
+});

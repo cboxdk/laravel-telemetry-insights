@@ -7,7 +7,7 @@ incident correlation, alerting and digests, on top of
 The dashboard is a read-only window onto Tempo, Loki and Prometheus. It
 queries your telemetry stores and writes nothing to them, which is a
 checkable property rather than a slogan. This package adds the things that
-need to *remember* something — and keeps them in five tables of its own, so
+need to *remember* something — and keeps them in six tables of its own, so
 that property survives.
 
 ## The problem it solves
