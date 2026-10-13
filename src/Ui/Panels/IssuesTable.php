@@ -52,7 +52,7 @@ class IssuesTable extends Panel
             $status = $issue->effectiveStatus();
 
             $rows[] = [
-                'type' => Ui::cell($issue->type ?? 'Exception', ['sub' => $issue->message ?? '']),
+                'type' => Ui::cell($issue->title(), ['sub' => $issue->message ?? '']),
                 'service' => Ui::cell($issue->service ?? '—'),
                 'last' => Ui::cell($issue->last_seen_at?->format('d/m H:i') ?? '—'),
                 'status' => Ui::cell($status->label(), [
@@ -66,7 +66,7 @@ class IssuesTable extends Panel
         return Ui::table(
             self::title(),
             [
-                Ui::col('type', 'Exception'),
+                Ui::col('type', 'Issue'),
                 Ui::col('service', 'Service'),
                 Ui::col('last', 'Last seen'),
                 Ui::col('status', 'Status'),

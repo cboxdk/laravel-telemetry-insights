@@ -31,6 +31,11 @@ final class Tables
         return self::name('alert_events', 'telemetry_alert_events');
     }
 
+    public static function issueEvents(): string
+    {
+        return self::name('issue_events', 'telemetry_issue_events');
+    }
+
     private static function name(string $key, string $default): string
     {
         $value = config('telemetry-insights.tables.'.$key, $default);

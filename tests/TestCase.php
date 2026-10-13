@@ -9,6 +9,7 @@ use Cbox\TelemetryInsights\Testing\InteractsWithInsights;
 use Cbox\TelemetryUi\TelemetryUiServiceProvider;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Laravel\Mcp\Server\McpServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -33,6 +34,9 @@ abstract class TestCase extends Orchestra
     protected function getPackageProviders($app): array
     {
         return [
+            // Auto-discovered in an app; testbench needs it named. It binds
+            // the tool arguments to Laravel\Mcp\Request.
+            McpServiceProvider::class,
             TelemetryUiServiceProvider::class,
             TelemetryInsightsServiceProvider::class,
         ];

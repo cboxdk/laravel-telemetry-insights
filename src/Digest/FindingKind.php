@@ -10,6 +10,7 @@ enum FindingKind: string
     case Incident = 'incident';
     case NewIssue = 'new_issue';
     case Regression = 'regression';
+    case ScheduledTask = 'scheduled_task';
     case SlowRoute = 'slow_route';
     case SlowQuery = 'slow_query';
     case RepeatedQuery = 'repeated_query';
@@ -20,6 +21,7 @@ enum FindingKind: string
             self::Incident => 'Incident',
             self::NewIssue => 'New issue',
             self::Regression => 'Regression',
+            self::ScheduledTask => 'Scheduled task',
             self::SlowRoute => 'Slow route',
             self::SlowQuery => 'Slow query',
             self::RepeatedQuery => 'Repeated query',
@@ -35,6 +37,9 @@ enum FindingKind: string
         return match ($this) {
             self::Incident => 100,
             self::Regression => 80,
+            // Above a new error group: a job that silently stopped running
+            // is worse than one that is throwing, because nothing else says so.
+            self::ScheduledTask => 70,
             self::NewIssue => 60,
             self::SlowQuery => 40,
             self::RepeatedQuery => 30,

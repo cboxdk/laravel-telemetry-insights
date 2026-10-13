@@ -45,4 +45,14 @@ final readonly class Setting
 
         return is_bool($value) ? $value : $default;
     }
+
+    /**
+     * @return array<array-key, mixed>
+     */
+    public function array(string $key): array
+    {
+        $value = $this->config->get($key, []);
+
+        return is_array($value) ? $value : [];
+    }
 }

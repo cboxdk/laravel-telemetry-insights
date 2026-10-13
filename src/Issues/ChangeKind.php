@@ -16,9 +16,16 @@ enum ChangeKind: string
     /** Already open, still going. Not news. */
     case Recurring = 'recurring';
 
+    /**
+     * A condition that cleared on its own — the task ran again, the
+     * scheduler came back — so the scan resolved it. Only scheduled-task
+     * issues recover; an error group needs a person to call it fixed.
+     */
+    case Recovered = 'recovered';
+
     /** Worth telling someone about, as opposed to merely true. */
     public function isNews(): bool
     {
-        return $this !== self::Recurring;
+        return $this === self::New || $this === self::Regression;
     }
 }

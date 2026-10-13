@@ -11,7 +11,9 @@ use Cbox\TelemetryInsights\Correlate\Incident as CorrelatedIncident;
 use Cbox\TelemetryInsights\Issues\ChangeKind;
 use Cbox\TelemetryInsights\Issues\IncidentRecorder;
 use Cbox\TelemetryInsights\Issues\IssueChange;
+use Cbox\TelemetryInsights\Issues\IssueKind;
 use Cbox\TelemetryInsights\Issues\IssueLedger;
+use Cbox\TelemetryInsights\Issues\ScheduleLedger;
 use Cbox\TelemetryInsights\Issues\Spike;
 use Cbox\TelemetryInsights\Issues\SpikeDetector;
 use Cbox\TelemetryInsights\Models\AlertRule;
@@ -46,6 +48,7 @@ class Scanner
         private readonly SpikeDetector $spikes,
         private readonly AlertEvaluator $alerts,
         private readonly Config $config,
+        private readonly ?ScheduleLedger $schedule = null,
     ) {}
 
     public function scan(RequestScope $scope): ScanResult
@@ -73,6 +76,16 @@ class Scanner
         $spikes = $this->spikes($scope, $changes);
         $announced += $this->announceSpikes($spikes);
 
+        // Optional in the constructor so a subclass written against 1.0 keeps
+        // working; the container does not fill a nullable parameter, so it
+        // is resolved here when nobody passed one.
+        $scheduled = ($this->schedule ?? app(ScheduleLedger::class))->record($scope);
+        $scheduledNews = array_values(array_filter($scheduled, static fn (IssueChange $c): bool => $c->kind->isNews()));
+        $recovered = $this->ofKind($scheduled, ChangeKind::Recovered);
+
+        $announced += $this->announceScheduled($scheduledNews);
+        $announced += $this->announceRecoveries($recovered);
+
         return new ScanResult(
             issuesSeen: count($changes),
             newIssues: count($new),
@@ -80,7 +93,93 @@ class Scanner
             incidents: count($incidents),
             spikes: count($spikes),
             announced: $announced,
+            scheduleProblems: count(array_filter($scheduled, static fn (IssueChange $c): bool => $c->kind !== ChangeKind::Recovered)),
+            scheduleNews: count($scheduledNews),
+            recovered: count($recovered),
         );
+    }
+
+    /**
+     * A scheduled task that started missing, overrunning or failing, or a
+     * scheduler that stopped — new, or back after it had cleared.
+     *
+     * @param  list<IssueChange>  $changes
+     */
+    private function announceScheduled(array $changes): int
+    {
+        if ($changes === [] || ! (bool) $this->config->get('telemetry-insights.announce.scheduled_tasks', true)) {
+            return 0;
+        }
+
+        $sent = 0;
+
+        foreach ($changes as $change) {
+            $issue = $change->issue;
+
+            if (! $issue->effectiveStatus()->notifiable()) {
+                continue;
+            }
+
+            $this->notifier->send(new Notification(
+                title: $issue->title().($change->kind === ChangeKind::Regression ? ' (again)' : ''),
+                body: (string) ($issue->message ?? ''),
+                severity: $issue->kind() === IssueKind::SchedulerStopped || $change->kind === ChangeKind::Regression
+                    ? Severity::Critical
+                    : Severity::Warning,
+                facts: array_filter([
+                    'Service' => (string) ($issue->service ?? ''),
+                    'Environment' => (string) ($issue->environment ?? ''),
+                    'Task' => (string) ($issue->subject ?? ''),
+                    'Fingerprint' => $issue->fingerprint,
+                ], static fn (string $v): bool => $v !== ''),
+            ));
+
+            $issue->forceFill(['notified_at' => Carbon::now()])->save();
+            $sent++;
+        }
+
+        $this->fireEventRules(AlertType::ScheduledTask, $changes);
+
+        return $sent;
+    }
+
+    /**
+     * A scheduled-task issue the scan resolved because its condition
+     * cleared. Only announced when the problem itself was: "recovered" about
+     * something nobody heard of is noise.
+     *
+     * @param  list<IssueChange>  $changes
+     */
+    private function announceRecoveries(array $changes): int
+    {
+        if ($changes === [] || ! (bool) $this->config->get('telemetry-insights.announce.recoveries', true)) {
+            return 0;
+        }
+
+        $sent = 0;
+
+        foreach ($changes as $change) {
+            $issue = $change->issue;
+
+            if ($issue->notified_at === null) {
+                continue;
+            }
+
+            $this->notifier->send(new Notification(
+                title: 'Recovered: '.$issue->title(),
+                body: 'The condition cleared on its own, so the issue was resolved.',
+                severity: Severity::Info,
+                facts: array_filter([
+                    'Service' => (string) ($issue->service ?? ''),
+                    'Task' => (string) ($issue->subject ?? ''),
+                    'Fingerprint' => $issue->fingerprint,
+                ], static fn (string $v): bool => $v !== ''),
+            ));
+
+            $sent++;
+        }
+
+        return $sent;
     }
 
     /**
@@ -262,7 +361,8 @@ class Scanner
         $first = $changes[0];
         $others = count($changes) - 1;
 
-        $summary = $type->label().': '.($first->issue->type ?? 'Exception')
+        // A scheduled-task title already says what it is.
+        $summary = ($type === AlertType::ScheduledTask ? '' : $type->label().': ').$first->issue->title()
             .($others > 0 ? ' (and '.$others.' other'.($others === 1 ? '' : 's').')' : '');
 
         foreach ($this->rules($type) as $rule) {

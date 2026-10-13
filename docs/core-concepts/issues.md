@@ -9,6 +9,13 @@ weight: 22
 An issue is one error group — the same fingerprint the dashboard already
 groups occurrences by — plus the decision your team made about it.
 
+It can also be a scheduled task that missed its slot, overran or keeps
+failing, or a scheduler that stopped. Those are conditions rather than
+occurrences and behave a little differently; see
+[scheduled tasks](scheduled-tasks.md). The `kind` column says which:
+`exception`, `scheduler_stopped`, `scheduled_task_missed`,
+`scheduled_task_overrunning` or `scheduled_task_failing`.
+
 The row is an **overlay**, not a copy. Occurrences, stack traces and counts
 are read from the telemetry store every time. Delete the row and you lose
 the status, nothing else.
@@ -80,7 +87,7 @@ php artisan telemetry-insights:issue resolve aaaa0000 --release=v2.4.1
 php artisan telemetry-insights:issue snooze  aaaa0000 --until="3 days"
 php artisan telemetry-insights:issue ignore  aaaa0000
 php artisan telemetry-insights:issue assign  aaaa0000 --to=sylvester
-php artisan telemetry-insights:issue reopen  aaaa0000
+php artisan telemetry-insights:issue reopen  aaaa0000 --by=sylvester --comment="Still happening"
 ```
 
 A unique prefix of the fingerprint is enough; an ambiguous one is refused
@@ -97,6 +104,28 @@ use Cbox\TelemetryInsights\Issues\IssueActions;
 
 app(IssueActions::class)->resolve($issue, by: $user->name, release: 'v2.4.1');
 ```
+
+## History
+
+Every decision lands in the issue's history (`$issue->events()`, table
+`telemetry_issue_events`): what was done, who did it, through which door,
+and the comment that came with it. The doors are `console`, `api`, `agent`
+(the [agent tools](../extension-points/agent-tools.md)), `scan` (the scan
+opening an issue, recording a regression or resolving a condition that
+cleared) and `code` (your own calls). Pass an `Attribution` to say who:
+
+```php
+use Cbox\TelemetryInsights\Issues\ActionSource;
+use Cbox\TelemetryInsights\Issues\Attribution;
+
+app(IssueActions::class)->ignore(
+    $issue,
+    new Attribution(ActionSource::Api, actor: $user->email, comment: 'Expected during deploys'),
+);
+```
+
+Leave it out and the entry reads "via code". The history is append-only;
+nothing in the package edits it.
 
 The dashboard pages carry the same decisions as a menu on the status cell,
 so you can resolve an issue where you read it. They are offers: the

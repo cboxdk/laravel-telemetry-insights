@@ -16,8 +16,16 @@ digests. The dashboard reads; this remembers.
 - `Correlate/` — pure domain. Folds error groups that started together into
   an `Incident` and names the cause. No state, no persistence: it re-runs
   from scratch each pass and stays stable via `Incident::signature()`.
-- `Issues/` — `IssueLedger` (new vs regression vs recurring) and
-  `IncidentRecorder`. The only reason the package has a database.
+- `Issues/` — `IssueLedger` (new vs regression vs recurring),
+  `ScheduleLedger` (scheduled-task conditions that open and clear),
+  `IssueActions` (every decision, written to the history with an
+  `Attribution`) and `IncidentRecorder`. The only reason the package has a
+  database.
+- `Schedule/` — `ScheduleMonitor` reads the scheduler gauges
+  laravel-telemetry publishes and returns `ScheduleProblem`s; thresholds
+  (with per-task overrides) in `TaskThresholds`.
+- `Mcp/Tools/` — the ledger as laravel/mcp tools, registered on the
+  dashboard's MCP server from `Ui/InsightsPages` via `TelemetryUi::mcpTool()`.
 - `Alerts/` — `RuleMeasurer` (rule → number, through the query IR),
   `AlertEvaluator` (measured / breached / notifiable as three decisions).
 - `Digest/` — ranked `Finding`s plus the Markdown brief.

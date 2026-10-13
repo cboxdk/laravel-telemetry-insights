@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Console;
 
+use Cbox\TelemetryInsights\Issues\ActionSource;
+use Cbox\TelemetryInsights\Issues\Attribution;
 use Cbox\TelemetryInsights\Issues\IssueActions;
 use Cbox\TelemetryInsights\Issues\IssueStatus;
 use Cbox\TelemetryInsights\Models\Issue;
@@ -26,7 +28,8 @@ final class IssueCommand extends Command
         .' {--release= : the release a fix shipped in (resolve)}'
         .' {--until= : when a snooze lapses, e.g. "3 days" (snooze)}'
         .' {--to= : who owns it (assign)}'
-        .' {--by= : who is resolving it (resolve)}';
+        .' {--by= : who is doing this — recorded in the history}'
+        .' {--comment= : why — recorded in the history}';
 
     protected $description = 'Resolve, reopen, ignore, snooze or assign an error group.';
 
@@ -43,12 +46,14 @@ final class IssueCommand extends Command
 
         $action = $this->stringArgument('action');
 
+        $as = new Attribution(ActionSource::Console, $this->stringOption('by'), $this->stringOption('comment'));
+
         $updated = match ($action) {
-            'resolve' => $actions->resolve($issue, $this->stringOption('by'), $this->stringOption('release')),
-            'reopen' => $actions->reopen($issue),
-            'ignore' => $actions->ignore($issue),
-            'snooze' => $actions->snooze($issue, $this->until()),
-            'assign' => $actions->assign($issue, $this->stringOption('to')),
+            'resolve' => $actions->resolve($issue, $as->actor, $this->stringOption('release'), $as),
+            'reopen' => $actions->reopen($issue, $as),
+            'ignore' => $actions->ignore($issue, $as),
+            'snooze' => $actions->snooze($issue, $this->until(), $as),
+            'assign' => $actions->assign($issue, $this->stringOption('to'), $as),
             default => null,
         };
 
@@ -60,7 +65,7 @@ final class IssueCommand extends Command
 
         $this->info(sprintf(
             '%s (%s) is now %s.',
-            $updated->type ?? 'Exception',
+            $updated->title(),
             $updated->fingerprint,
             $updated->effectiveStatus()->label(),
         ));

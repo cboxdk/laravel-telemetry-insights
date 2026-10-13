@@ -24,6 +24,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Needs a migration (`php artisan migrate`): four columns on the issues table
+and a fifth table for issue history.
+
+### Added
+
+- **Scheduled-task issues.** Each scan reads the schedule gauges
+  `cboxdk/laravel-telemetry` publishes (schedule monitoring, unreleased at
+  the time of writing) and turns what is wrong into issues: a stopped
+  scheduler, a task that missed its slot, one that is overrunning, and one
+  that failed N times in a row (`failure_threshold`, default 1). They are
+  conditions, so the scan resolves them itself when they clear — a missed
+  task resolves when it runs again — and reopens them as regressions when
+  a new episode starts. Thresholds are configurable under
+  `scheduled_tasks`, with per-task overrides by name or `*` pattern.
+  Announced (`announce.scheduled_tasks`, recoveries via
+  `announce.recoveries`), a new `scheduled_task` event rule type, and a
+  "Scheduled task" digest finding that reports the current state.
+- **Agent tools.** `list_issues`, `show_issue`, `resolve_issue`,
+  `ignore_issue` and `reopen_issue`, registered on the dashboard's MCP
+  server. Compact output with totals and paging; `show_issue` is Markdown
+  with the latest trace and the last day's occurrences and affected users.
+  Reads follow the dashboard's tenancy lock; changes need
+  `manageTelemetryUi`. `mcp.writes = false` leaves the read tools only.
+- **Issue history.** Every decision — from the terminal, the API, an
+  agent, the scan or your own code — is written to
+  `telemetry_issue_events` with who made it, through which door, and an
+  optional comment (`--comment`, the API's `comment`, the tools'
+  `comment`). `IssueActions` takes an optional `Attribution`.
+- Issues carry a `kind`, and the latest trace id of an error group. The
+  API and list command show a title (`Scheduled task missed:
+  reports:nightly`) and filter by `kind`.
+
+### Changed
+
+- `laravel/mcp` is now a declared dependency (it already came with the
+  dashboard).
+- The issues panel and `telemetry-insights:issues` label the column
+  "Issue" rather than "Exception", since not every issue is one.
+
 ## [1.0.0] - 2026-09-27
 
 First release. `cboxdk/laravel-telemetry-ui` reads the backends and shows you

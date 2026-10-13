@@ -17,7 +17,7 @@ final class IssuesCommand extends Command
         .' {--status= : open, resolved, ignored or snoozed}'
         .' {--limit=25 : how many to show}';
 
-    protected $description = 'List recorded error groups and their status.';
+    protected $description = 'List recorded issues (error groups and scheduled-task problems) and their status.';
 
     public function handle(): int
     {
@@ -49,14 +49,14 @@ final class IssuesCommand extends Command
             $rows[] = [
                 $issue->fingerprint,
                 $issue->effectiveStatus()->label(),
-                $issue->type ?? 'Exception',
+                $issue->title(),
                 $issue->service ?? '—',
                 $issue->last_seen_at?->diffForHumans() ?? '—',
                 $issue->assignee ?? '',
             ];
         }
 
-        $this->table(['Fingerprint', 'Status', 'Exception', 'Service', 'Last seen', 'Owner'], $rows);
+        $this->table(['Fingerprint', 'Status', 'Issue', 'Service', 'Last seen', 'Owner'], $rows);
 
         return self::SUCCESS;
     }

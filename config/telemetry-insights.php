@@ -84,6 +84,68 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Scheduled tasks
+    |--------------------------------------------------------------------------
+    |
+    | Read from the gauges cboxdk/laravel-telemetry publishes about the
+    | schedule (`instrument.schedule_monitoring`). Each pass of the scan turns
+    | what is wrong into issues, and resolves them when the condition clears:
+    |
+    | - the scheduler stopped: schedule:run has not started for
+    |   scheduler_stopped_after_seconds;
+    | - a task missed: it was due more than missed_after_seconds before it
+    |   last started (or was skipped), and schedule:run listed it within
+    |   listed_within_seconds — so a task you deleted is not "missed";
+    | - a task overran: a run started more than overrun_after_seconds ago
+    |   and has not finished (a worker that died mid-run looks the same);
+    | - a task is failing: it failed failure_threshold times in a row.
+    |
+    | Override any of the four per task under "tasks", keyed by the task's
+    | name or a `*` pattern; an exact name wins over a pattern. Set
+    | 'enabled' => false there to stop watching a task altogether.
+    |
+    |   'tasks' => [
+    |       'reports:nightly' => ['overrun_after_seconds' => 4 * 3600],
+    |       'sync:*' => ['failure_threshold' => 3],
+    |   ],
+    |
+    */
+
+    'scheduled_tasks' => [
+        'enabled' => (bool) env('TELEMETRY_INSIGHTS_SCHEDULED_TASKS', true),
+        'scheduler_stopped_after_seconds' => (int) env('TELEMETRY_INSIGHTS_SCHEDULER_STOPPED_AFTER', 180),
+        'missed_after_seconds' => (int) env('TELEMETRY_INSIGHTS_TASK_MISSED_AFTER', 300),
+        'listed_within_seconds' => 600,
+        'overrun_after_seconds' => (int) env('TELEMETRY_INSIGHTS_TASK_OVERRUN_AFTER', 3600),
+        'failure_threshold' => (int) env('TELEMETRY_INSIGHTS_TASK_FAILURE_THRESHOLD', 1),
+        // Counting a streak costs one read per failing task; this bounds it.
+        'max_failure_probes' => 20,
+        'tasks' => [],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Agent tools (MCP)
+    |--------------------------------------------------------------------------
+    |
+    | The issue ledger as tools on the dashboard's MCP server
+    | (`php artisan mcp:start telemetry-ui`, or its web endpoint): list and
+    | show issues, and resolve, ignore or reopen one. Every change is written
+    | to the issue's history as made via agent, with the user if the
+    | transport has one.
+    |
+    | Changing an issue needs the same `manageTelemetryUi` ability the
+    | dashboard checks. "writes" false registers the read tools only.
+    |
+    */
+
+    'mcp' => [
+        'enabled' => (bool) env('TELEMETRY_INSIGHTS_MCP', true),
+        'writes' => (bool) env('TELEMETRY_INSIGHTS_MCP_WRITES', true),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Notifications
     |--------------------------------------------------------------------------
     |
@@ -123,8 +185,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | A new issue and a regression are the two things worth interrupting
-    | someone for without a rule being configured. Turn either off to keep the
-    | scan recording them silently.
+    | someone for without a rule being configured, and a scheduled task that
+    | stopped running is a third. Turn any off to keep the scan recording
+    | them silently.
     |
     */
 
@@ -132,6 +195,10 @@ return [
         'new_issues' => (bool) env('TELEMETRY_INSIGHTS_ANNOUNCE_NEW', true),
         'regressions' => (bool) env('TELEMETRY_INSIGHTS_ANNOUNCE_REGRESSIONS', true),
         'incidents' => (bool) env('TELEMETRY_INSIGHTS_ANNOUNCE_INCIDENTS', true),
+        'scheduled_tasks' => (bool) env('TELEMETRY_INSIGHTS_ANNOUNCE_SCHEDULED_TASKS', true),
+        // A scheduled-task issue that cleared on its own, when the problem
+        // itself was announced.
+        'recoveries' => (bool) env('TELEMETRY_INSIGHTS_ANNOUNCE_RECOVERIES', true),
     ],
 
     /*
@@ -161,6 +228,7 @@ return [
         'incidents' => 'telemetry_incidents',
         'alert_rules' => 'telemetry_alert_rules',
         'alert_events' => 'telemetry_alert_events',
+        'issue_events' => 'telemetry_issue_events',
     ],
 
 ];

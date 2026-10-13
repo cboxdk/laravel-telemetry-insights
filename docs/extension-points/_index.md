@@ -14,3 +14,5 @@ this package does not ship.
 - [Your own correlation](correlation.md)
 - [HTTP API](http-api.md) — read and change issues and incidents from your
   own screen.
+- [Agent tools](agent-tools.md) — the issue ledger over MCP, for an
+  assistant.

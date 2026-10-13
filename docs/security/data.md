@@ -1,16 +1,17 @@
 ---
 title: What this package stores
-description: The four tables, what lands in them, and what never does
+description: The five tables, what lands in them, and what never does
 weight: 61
 ---
 
 # What this package stores
 
-## The four tables
+## The five tables
 
 | Table | Holds |
 | --- | --- |
-| `telemetry_issues` | Fingerprint, exception class, message, service, status, assignee, timestamps |
+| `telemetry_issues` | Fingerprint, kind, exception class or task name, message, service, environment, latest trace id, status, assignee, timestamps |
+| `telemetry_issue_events` | Each decision about an issue: action, actor, source (console, API, agent, scan, code), comment, when |
 | `telemetry_incidents` | Signature, title, onset, the suspected cause and its evidence, member fingerprints |
 | `telemetry_alert_rules` | Name, type, threshold, window, cooldown, scope, channels |
 | `telemetry_alert_events` | Value, threshold, summary, context, when it fired |
@@ -36,6 +37,11 @@ issues table so a list can be rendered without querying the store. If your
 exception messages embed personal data, that data is now in your database
 as well as in your telemetry store, under your own retention. Nothing else
 is copied; user identifiers, request bodies and attributes are not.
+
+The issue history records **who** made each decision: the `--by` value, the
+API's `by` field or signed-in user, or the MCP transport's user — an email
+address when the user model has one — plus any comment they gave. That is
+your team's data about your team, kept as long as the issue row.
 
 ## Writing
 

@@ -38,7 +38,7 @@ this one follows by changing an import, not by being rewritten.
 | | |
 | --- | --- |
 | Occurrences, stack traces, spans, metrics | Your telemetry stores. Read on demand, never copied |
-| Status, assignee, snooze, cooldown, what we paged about | Four tables here |
+| Status, assignee, snooze, cooldown, what we paged about, who decided what | Five tables here |
 
 This is why the dashboard's promise survives. `WritesToBackend` is about
 **your telemetry stores** — Tempo, Loki, Prometheus, ClickHouse. A local
@@ -54,6 +54,7 @@ your team made, not the telemetry.
 scan ──▶ IssueLedger      reads the window, folds it into the ledger
      ├─▶ IncidentCorrelator   groups what started together, names the cause
      ├─▶ IncidentRecorder     persists it under a stable signature
+     ├─▶ ScheduleLedger       reads the scheduler's gauges, opens and clears task issues
      └─▶ Notifier             announces only what is news
 ```
 

@@ -14,6 +14,7 @@ A digest answers one question: *what should I look at this week?*
 | --- | --- |
 | Incident | The correlator |
 | Regression | The issue ledger |
+| Scheduled task | The scheduler's gauges — what is wrong with the schedule now ([scheduled tasks](scheduled-tasks.md)) |
 | New issue | The issue ledger |
 | Slow query | Server-side span aggregation |
 | Repeated query | The same, ranked by call count |
