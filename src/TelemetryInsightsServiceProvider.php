@@ -13,6 +13,7 @@ use Cbox\TelemetryInsights\Console\ScanCommand;
 use Cbox\TelemetryInsights\Console\WatchCommand;
 use Cbox\TelemetryInsights\Contracts\CorrelatesIncidents;
 use Cbox\TelemetryInsights\Correlate\IncidentCorrelator;
+use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryInsights\Ui\InsightsPages;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -95,7 +96,7 @@ class TelemetryInsightsServiceProvider extends ServiceProvider
             ];
 
             // Off by default: it costs the monitored apps something.
-            if ((bool) $config->get('telemetry-insights.profiling.rotation.enabled', false)) {
+            if ((new Setting($config))->bool('telemetry-insights.profiling.rotation.enabled', false)) {
                 $jobs['profiling'] = ProfilingCommand::NAME;
             }
 

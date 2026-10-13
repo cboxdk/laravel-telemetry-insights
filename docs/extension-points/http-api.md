@@ -55,8 +55,12 @@ Content-Type: application/json
 ```
 
 Every action takes an optional `comment`, and every action is written to
-the issue's history as made via API — naming `by` when given, else the
-signed-in user.
+the issue's history as made via API — naming the signed-in user, or `by`
+when there is none. `telemetry-insights` is the scan's own name and is
+refused (422) as a `by`.
+
+`?kind=` takes one kind, or `scheduled` for every scheduled-task kind; an
+unknown kind matches nothing.
 
 | `action` | Extra fields |
 | --- | --- |

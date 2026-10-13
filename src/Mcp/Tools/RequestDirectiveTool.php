@@ -72,6 +72,12 @@ final class RequestDirectiveTool extends LedgerTool
             return $refusal;
         }
 
+        // Targets are keyed by service alone, so a viewer held to some
+        // environments cannot be kept to them: fail closed.
+        if ($this->lock->environmentsLocked()) {
+            return Response::error('Not authorized to request directives: your view is limited to some environments, and a directive cannot be.');
+        }
+
         $service = $this->string($request, 'service');
 
         // A viewer locked to some services may only watch those — and must

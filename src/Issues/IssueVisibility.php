@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Issues;
 
+use Cbox\TelemetryInsights\Models\Incident;
 use Cbox\TelemetryInsights\Models\Issue;
 use Cbox\TelemetryUi\Support\ScopeLock;
 use Illuminate\Database\Eloquent\Builder;
@@ -45,6 +46,26 @@ final readonly class IssueVisibility
     public function query(): Builder
     {
         return $this->apply(Issue::query());
+    }
+
+    /**
+     * Whether the viewer may see an incident: every service it touched must
+     * be theirs. Incidents carry no environment, so an environment-locked
+     * viewer sees none — fail closed, as for error groups.
+     */
+    public function allowsIncident(Incident $incident): bool
+    {
+        if ($this->lock->environmentsLocked()) {
+            return false;
+        }
+
+        if (! $this->lock->servicesLocked()) {
+            return true;
+        }
+
+        $services = $incident->services;
+
+        return $services !== [] && array_diff($services, $this->lock->services()) === [];
     }
 
     /** Whether the viewer may act for this service at all. */

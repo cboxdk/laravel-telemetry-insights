@@ -206,6 +206,8 @@ return [
             'impact' => env('TELEMETRY_INSIGHTS_PROFILING_IMPACT', 'total_time'),
             'lookback' => '24h',
             'cooldown_hours' => (int) env('TELEMETRY_INSIGHTS_PROFILING_COOLDOWN', 24),
+            // A route whose directive was refused is retried after this.
+            'failed_cooldown_hours' => 1,
         ],
     ],
 

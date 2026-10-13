@@ -46,6 +46,12 @@ final class IssueCommand extends Command
 
         $action = $this->stringArgument('action');
 
+        if (Attribution::reserved($this->stringOption('by'))) {
+            $this->error('['.$this->stringOption('by').'] is reserved for the scan.');
+
+            return self::FAILURE;
+        }
+
         $as = new Attribution(ActionSource::Console, $this->stringOption('by'), $this->stringOption('comment'));
 
         $updated = match ($action) {

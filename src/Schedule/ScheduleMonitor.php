@@ -45,6 +45,8 @@ final class ScheduleMonitor
 
     public const FAILED = 'schedule_tasks_failed_total';
 
+    public const BACKGROUND_FAILED = 'schedule_background_tasks_failed_total';
+
     private const SERVICE = 'service_name';
 
     private const ENVIRONMENT = 'deployment_environment_name';
@@ -250,28 +252,27 @@ final class ScheduleMonitor
     /**
      * Tasks that failed in the window, kept only when they have failed the
      * configured number of times IN A ROW: the failures since the task last
-     * succeeded. Counting that costs one read per failing task, so it only
-     * happens for the tasks the window says failed, and at most a bounded
-     * number of them.
+     * succeeded. Counting that costs one read per failing task (two with
+     * background tasks), so it only happens for the tasks the window says
+     * failed, and at most a bounded number of them.
+     *
+     * Before laravel-telemetry 3.5 the failure counter only came into being
+     * with a task's first failure, and `increase()` cannot see a series go
+     * from absent to 1 — so the very first failure of a task was invisible.
+     * 3.5 publishes the counter at zero for every listed task.
      *
      * @param  array<string, float>  $lastSucceeded
      * @return list<ScheduleProblem>
      */
     private function failing(RequestScope $scope, array $lastSucceeded, int $now): array
     {
-        $failed = $this->connections->metrics()->query(
-            $scope->metricQuery(self::FAILED)
-                ->increase($scope->promDuration())
-                ->sumBy(self::SERVICE, self::ENVIRONMENT, self::TASK),
-        );
+        $failed = $this->failures($scope, $scope->promDuration());
 
         $limit = max(1, $this->settings->int('telemetry-insights.scheduled_tasks.max_failure_probes', 20));
         $problems = [];
 
-        foreach ($failed as $sample) {
-            $row = $this->row($sample);
-
-            if ($row === null || $row['value'] < 0.5 || ! $this->thresholds->enabled($row['task'])) {
+        foreach ($failed as $key => $row) {
+            if ($row['value'] < 0.5 || ! $this->thresholds->enabled($row['task'])) {
                 continue;
             }
 
@@ -279,7 +280,6 @@ final class ScheduleMonitor
                 break;
             }
 
-            $key = ScheduleReading::key($row['service'], $row['environment'], $row['task']);
             $succeeded = $lastSucceeded[$key] ?? 0.0;
             $streak = $this->streak($scope, $row, $succeeded, $now);
             $threshold = $this->thresholds->failureThreshold($row['task']);
@@ -309,37 +309,84 @@ final class ScheduleMonitor
     }
 
     /**
-     * Failures since the last success. The window's count stands in when
-     * the longer read is not available — fail open, never fail loud.
+     * Failures since the last success — the streak. The since-success read
+     * is the answer whenever it answers, including "none": a task that
+     * failed on Monday and succeeded on Tuesday is not failing, whatever a
+     * week-long window says. The window's count stands in only when that
+     * read fails outright.
      *
      * @param  array{service: string, environment: string, task: string, value: float}  $row
      */
     private function streak(RequestScope $scope, array $row, float $succeeded, int $now): int
     {
-        $seconds = $succeeded > 0 ? (int) ceil($now - $succeeded) : self::STREAK_LOOKBACK;
-        $seconds = min(self::STREAK_LOOKBACK, max(60, $seconds));
+        $since = $succeeded > 0 ? (int) $succeeded : $now - self::STREAK_LOOKBACK;
+        $count = $this->failuresSince($scope, $row['service'], $row['environment'], $row['task'], $since, $now);
+
+        return $count ?? (int) round($row['value']);
+    }
+
+    /**
+     * How many times a task failed (foreground and background runs) since
+     * a moment, up to a week back. Null when the store did not answer.
+     */
+    public function failuresSince(RequestScope $scope, string $service, string $environment, string $task, int $since, ?int $now = null): ?int
+    {
+        $now ??= time();
+        $seconds = min(self::STREAK_LOOKBACK, max(60, $now - $since));
 
         $matchers = implode(',', [
-            self::SERVICE.'="'.self::escape($row['service']).'"',
-            self::ENVIRONMENT.'="'.self::escape($row['environment']).'"',
-            self::TASK.'="'.self::escape($row['task']).'"',
+            self::SERVICE.'="'.self::escape($service).'"',
+            self::ENVIRONMENT.'="'.self::escape($environment).'"',
+            self::TASK.'="'.self::escape($task).'"',
         ]);
 
         try {
-            $samples = $this->connections->metrics()->query(
-                $scope->metricQuery(self::FAILED, $matchers)->increase($seconds.'s')->sumBy(),
-            );
+            $total = 0.0;
+
+            foreach ([self::FAILED, self::BACKGROUND_FAILED] as $metric) {
+                foreach ($this->connections->metrics()->query(
+                    $scope->metricQuery($metric, $matchers)->increase($seconds.'s')->sumBy(),
+                ) as $sample) {
+                    if (is_finite($sample->value)) {
+                        $total += $sample->value;
+                    }
+                }
+            }
         } catch (SourceException) {
-            return (int) round($row['value']);
+            return null;
         }
 
-        foreach ($samples as $sample) {
-            if (is_finite($sample->value)) {
-                return max((int) round($row['value']), (int) round($sample->value));
+        return (int) round($total);
+    }
+
+    /**
+     * Failures per task over a range: foreground runs plus background ones
+     * (whose counter also carries the exit code, summed away here).
+     *
+     * @return array<string, array{service: string, environment: string, task: string, value: float}>
+     */
+    private function failures(RequestScope $scope, string $range): array
+    {
+        $rows = [];
+
+        foreach ([self::FAILED, self::BACKGROUND_FAILED] as $metric) {
+            $samples = $this->connections->metrics()->query(
+                $scope->metricQuery($metric)->increase($range)->sumBy(self::SERVICE, self::ENVIRONMENT, self::TASK),
+            );
+
+            foreach ($samples as $sample) {
+                $row = $this->row($sample);
+
+                if ($row === null) {
+                    continue;
+                }
+
+                $key = ScheduleReading::key($row['service'], $row['environment'], $row['task']);
+                $rows[$key] = isset($rows[$key]) ? ['value' => $rows[$key]['value'] + $row['value']] + $row : $row;
             }
         }
 
-        return (int) round($row['value']);
+        return $rows;
     }
 
     /**

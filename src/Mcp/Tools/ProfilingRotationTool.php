@@ -58,6 +58,12 @@ final class ProfilingRotationTool extends LedgerTool
             $query->whereIn('service', $this->lock->services());
         }
 
+        // Runs carry no environment, so an environment-locked viewer cannot
+        // be shown any of them to be theirs: fail closed.
+        if ($this->lock->environmentsLocked()) {
+            $query->whereRaw('1 = 0');
+        }
+
         $runs = [];
 
         foreach ($query->get() as $run) {
@@ -94,7 +100,7 @@ final class ProfilingRotationTool extends LedgerTool
             'note' => $runs === [] ? 'Nothing profiled yet.' : null,
         ];
 
-        if (filter_var($request->get('next', false), FILTER_VALIDATE_BOOLEAN)) {
+        if (filter_var($request->get('next', false), FILTER_VALIDATE_BOOLEAN) && ! $this->lock->environmentsLocked()) {
             $scope = $this->scopes->make($this->settings->string($prefix.'lookback', '24h'));
             $next = array_filter(
                 $this->rotation->candidates($scope),

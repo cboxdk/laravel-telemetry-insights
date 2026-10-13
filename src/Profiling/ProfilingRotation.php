@@ -64,10 +64,18 @@ final readonly class ProfilingRotation
         }
 
         $recent = $this->recentlyProfiled();
+        $reachable = [];
 
+        // Dropped before the top N is taken: a service nothing can reach
+        // would otherwise take a slot every pass and fail every time.
         $fresh = array_values(array_filter(
             $ranked,
-            static fn (RouteImpact $r): bool => ! isset($recent[($r->service ?? '')."\0".$r->route]),
+            function (RouteImpact $r) use ($recent, &$reachable): bool {
+                $service = $r->service ?? '';
+
+                return ! isset($recent[$service."\0".$r->route])
+                    && ($reachable[$service] ??= $this->directives->reachable($r->service));
+            },
         ));
 
         usort($fresh, static fn (RouteImpact $a, RouteImpact $b): int => $b->impact <=> $a->impact);
@@ -197,18 +205,23 @@ final readonly class ProfilingRotation
     }
 
     /**
-     * Routes placed within the cooldown, keyed service + pattern.
+     * Routes tried within their cooldown, keyed service + route: a placed
+     * directive for `cooldown_hours`, a failed one for the shorter
+     * `failed_cooldown_hours` — so an app that refuses is retried, but not
+     * hammered every pass.
      *
      * @return array<string, true>
      */
     private function recentlyProfiled(): array
     {
-        $hours = max(0, $this->settings->int(self::PREFIX.'cooldown_hours', 24));
+        $placed = Carbon::now()->subHours(max(0, $this->settings->int(self::PREFIX.'cooldown_hours', 24)));
+        $failed = Carbon::now()->subHours(max(0, $this->settings->int(self::PREFIX.'failed_cooldown_hours', 1)));
 
         $runs = ProfilingRun::query()
             ->where('match', 'route')
-            ->where('status', ProfilingRun::PLACED)
-            ->where('created_at', '>=', Carbon::now()->subHours($hours))
+            ->where(static fn ($query) => $query
+                ->where(static fn ($q) => $q->where('status', ProfilingRun::PLACED)->where('created_at', '>=', $placed))
+                ->orWhere(static fn ($q) => $q->where('status', ProfilingRun::FAILED)->where('created_at', '>=', $failed)))
             ->get(['service', 'value']);
 
         $recent = [];

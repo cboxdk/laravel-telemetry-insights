@@ -36,7 +36,9 @@ four hours). Each pass:
    costs the fleet whether slow or merely busy — or `p95_rate`, p95 latency
    × requests per second;
 2. drops the ones profiled in the last `cooldown_hours` (24) — this is what
-   makes it rotate;
+   makes it rotate — the ones whose directive was refused in the last
+   `failed_cooldown_hours` (1), and the ones on a service there is no way
+   to reach (no target, not this app);
 3. places a `route` directive with `profile` on the top `routes` (3), for
    `minutes` (15), `created_by` `insights`, the reason naming the rank and
    the impact.
@@ -108,7 +110,7 @@ recorded the same way; the rotation moves on to its next pick.
 
 ## Requirements
 
-A `cboxdk/laravel-telemetry` with directives in each monitored app (the
-release after 3.x that added them), and the request-duration histogram
+`cboxdk/laravel-telemetry` ≥ 3.5 (which added directives) in each
+monitored app, and the request-duration histogram
 (`http_server_request_duration_seconds`, labelled `service_name` and
 `http_route`) in the dashboard's metrics store for the rotation.

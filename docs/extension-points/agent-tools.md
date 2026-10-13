@@ -61,7 +61,11 @@ status that changed with no explanation.
   who could run `telemetry-insights:issue` in the same shell. An HTTP
   request with no user is refused.
 - `request_directive` is a write too, with the same gate. A viewer locked
-  to some services may only target those, and must name one.
+  to some services may only target those, and must name one. A viewer
+  locked to some **environments** cannot request directives at all —
+  targets are keyed by service, so a directive cannot be held to an
+  environment — and sees no profiling runs in `profiling_rotation` or on
+  the Profiling page.
 - `telemetry-insights.mcp.writes = false` registers the read tools only;
   `telemetry-insights.mcp.enabled = false` registers none.
 

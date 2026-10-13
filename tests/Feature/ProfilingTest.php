@@ -273,3 +273,51 @@ it('signs exactly as laravel-telemetry\'s DirectivesController verifies', functi
     expect($refused->status)->toBe(ProfilingRun::FAILED)
         ->and($refused->error)->toContain('(401)');
 });
+
+it('cools a refused route down for a shorter while, then tries it again', function (): void {
+    config()->set('telemetry-insights.profiling.rotation.routes', 1);
+    directiveEndpoint(401);
+    routeTime(['/checkout' => 900.0, '/search' => 400.0]);
+
+    $first = app(ProfilingRotation::class)->rotate(new RequestScope(period: '24h'));
+    $second = app(ProfilingRotation::class)->rotate(new RequestScope(period: '24h'));
+
+    expect($first[0]->status)->toBe(ProfilingRun::FAILED)
+        ->and($first[0]->value)->toBe('/checkout')
+        // Not the refused route again on the very next pass.
+        ->and($second[0]->value)->toBe('/search');
+
+    $this->travel(2)->hours();
+
+    expect(app(ProfilingRotation::class)->rotate(new RequestScope(period: '24h'))[0]->value)->toBe('/checkout');
+});
+
+it('drops routes on a service nothing can reach before taking the top N', function (): void {
+    config()->set('telemetry-insights.profiling.rotation.routes', 1);
+    directiveEndpoint();
+
+    Http::fake(['prometheus.test:9090/api/v1/query*' => Http::response(promVector([
+        ['labels' => ['service_name' => 'billing', 'http_route' => '/invoices'], 'value' => 5000.0],
+        ['labels' => ['service_name' => 'shop', 'http_route' => '/checkout'], 'value' => 900.0],
+    ]))]);
+
+    $runs = app(ProfilingRotation::class)->rotate(new RequestScope(period: '24h'));
+
+    expect($runs)->toHaveCount(1)
+        ->and($runs[0]->service)->toBe('shop')
+        ->and($runs[0]->status)->toBe(ProfilingRun::PLACED);
+});
+
+it('refuses directives to a viewer locked to some environments, and shows them no runs', function (): void {
+    directiveEndpoint();
+    app(Directives::class)->place(new DirectiveRequest('route', '/checkout', service: 'shop'), ProfilingRun::ADHOC);
+
+    config()->set('telemetry-ui.scope.lock', ['environments' => ['production']]);
+
+    TelemetryServer::tool(RequestDirectiveTool::class, ['match' => 'user', 'value' => '42', 'service' => 'shop'])
+        ->assertHasErrors(['limited to some environments']);
+    TelemetryServer::tool(ProfilingRotationTool::class)->assertOk()->assertDontSee('/checkout');
+
+    expect((new ProfilingTable(new RequestScope(period: '24h')))->data()['rows'])->toBe([])
+        ->and(ProfilingRun::query()->count())->toBe(1);
+});

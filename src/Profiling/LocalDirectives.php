@@ -33,7 +33,7 @@ final readonly class LocalDirectives implements PlacesDirectives
     public function place(DirectiveRequest $request): PlacedDirective
     {
         if (! self::available()) {
-            throw new DirectiveException('The installed cboxdk/laravel-telemetry has no directives (it needs the release that added them).');
+            throw new DirectiveException('The installed cboxdk/laravel-telemetry has no directives (directives need 3.5 or later).');
         }
 
         try {

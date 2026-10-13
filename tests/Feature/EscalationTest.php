@@ -221,3 +221,24 @@ it('leaves quiet issues alone when stale resolving is off, or when someone decid
 
     expect(app(StaleIssues::class)->resolve(new RequestScope(period: '1h')))->toBe([]);
 });
+
+it('learns from the hours a capped sample covers, not from the whole week', function (): void {
+    // Five busy hours just before archiving, and a sample cap the store
+    // reaches: the week before them was not read, so it must not count as
+    // quiet — or the limits would sit at the floor and any normal hour
+    // would reopen the issue.
+    config()->set('telemetry-insights.escalation.sample_limit', 100);
+
+    $streams = [];
+
+    for ($hour = 1; $hour <= 5; $hour++) {
+        $streams[] = exceptionStream('aaaa00000001', 'RedisException', 'refused', 'trace'.$hour, $hour * 3600 - 1800, 30);
+    }
+
+    fakeBackends($streams);
+
+    $issue = app(IssueActions::class)->archive(escalatingIssue());
+
+    expect($issue->escalation_spike_limit)->toBe(90)   // 30/h × 3, from the covered hours
+        ->and((string) $issue->events()->sole()->comment)->not->toContain('168 hours');
+});

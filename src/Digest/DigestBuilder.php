@@ -126,8 +126,9 @@ class DigestBuilder
      */
     private function scheduledTasks(RequestScope $scope): array
     {
-        // Optional in the constructor for subclasses written against 1.0;
-        // the container does not fill a nullable parameter, so resolve it.
+        // Optional in the constructor for subclasses written against 1.0.
+        // The container passes an optional parameter's default (null) unless
+        // the class is explicitly bound, so it is resolved here instead.
         $reading = ($this->schedule ?? app(ScheduleMonitor::class))->read($scope);
 
         if ($reading === null || $reading->problems === []) {

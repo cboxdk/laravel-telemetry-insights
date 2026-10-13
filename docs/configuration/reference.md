@@ -107,6 +107,7 @@ See [profiling](../core-concepts/profiling.md).
 | `profiling.rotation.impact` | `TELEMETRY_INSIGHTS_PROFILING_IMPACT` | `total_time` | Or `p95_rate` |
 | `profiling.rotation.lookback` | — | `24h` | Window the impact is measured over |
 | `profiling.rotation.cooldown_hours` | `TELEMETRY_INSIGHTS_PROFILING_COOLDOWN` | `24` | A route profiled this recently is skipped |
+| `profiling.rotation.failed_cooldown_hours` | — | `1` | A route whose directive failed is retried after this |
 
 ## Agent tools
 

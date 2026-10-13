@@ -12,6 +12,7 @@ use Cbox\TelemetryInsights\Mcp\Tools\ReopenIssueTool;
 use Cbox\TelemetryInsights\Mcp\Tools\RequestDirectiveTool;
 use Cbox\TelemetryInsights\Mcp\Tools\ResolveIssueTool;
 use Cbox\TelemetryInsights\Mcp\Tools\ShowIssueTool;
+use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\TelemetryUiManager;
@@ -60,7 +61,7 @@ final class InsightsPages
      */
     private static function agentTools(): void
     {
-        if (! (bool) config('telemetry-insights.mcp.enabled', true)) {
+        if (! app(Setting::class)->bool('telemetry-insights.mcp.enabled', true)) {
             return;
         }
 

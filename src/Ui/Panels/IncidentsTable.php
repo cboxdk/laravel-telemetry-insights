@@ -6,6 +6,7 @@ namespace Cbox\TelemetryInsights\Ui\Panels;
 
 use Cbox\TelemetryInsights\Correlate\Confidence;
 use Cbox\TelemetryInsights\Issues\IncidentStatus;
+use Cbox\TelemetryInsights\Issues\IssueVisibility;
 use Cbox\TelemetryInsights\Models\Incident;
 use Cbox\TelemetryUi\Panels\Panel;
 use Cbox\TelemetryUi\Panels\Ui;
@@ -43,9 +44,11 @@ class IncidentsTable extends Panel
             ->get();
 
         $rows = [];
+        $visibility = app(IssueVisibility::class);
 
         foreach ($incidents as $incident) {
-            if (! $incident instanceof Incident) {
+            // The viewer's tenancy lock, failing closed.
+            if (! $incident instanceof Incident || ! $visibility->allowsIncident($incident)) {
                 continue;
             }
 

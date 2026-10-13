@@ -21,6 +21,7 @@ use Cbox\TelemetryInsights\Models\AlertRule;
 use Cbox\TelemetryInsights\Notify\Notification;
 use Cbox\TelemetryInsights\Notify\Notifier;
 use Cbox\TelemetryInsights\Notify\Severity;
+use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryUi\Http\Api\RequestScope;
 use Illuminate\Contracts\Config\Repository as Config;
 use Illuminate\Support\Carbon;
@@ -80,8 +81,9 @@ class Scanner
         $announced += $this->announceSpikes($spikes);
 
         // Optional in the constructor so a subclass written against 1.0 keeps
-        // working; the container does not fill a nullable parameter, so it
-        // is resolved here when nobody passed one.
+        // working. The container passes an optional parameter's default
+        // (null) unless the class is explicitly bound, so it is resolved
+        // here when nobody passed one.
         $scheduled = ($this->schedule ?? app(ScheduleLedger::class))->record($scope);
         $scheduledNews = array_values(array_filter($scheduled, static fn (IssueChange $c): bool => $c->kind->isNews()));
         $recovered = $this->ofKind($scheduled, ChangeKind::Recovered);
@@ -114,7 +116,7 @@ class Scanner
      */
     private function announceScheduled(array $changes): int
     {
-        if ($changes === [] || ! (bool) $this->config->get('telemetry-insights.announce.scheduled_tasks', true)) {
+        if ($changes === [] || ! $this->settings()->bool('telemetry-insights.announce.scheduled_tasks', true)) {
             return 0;
         }
 
@@ -159,7 +161,7 @@ class Scanner
      */
     private function announceRecoveries(array $changes): int
     {
-        if ($changes === [] || ! (bool) $this->config->get('telemetry-insights.announce.recoveries', true)) {
+        if ($changes === [] || ! $this->settings()->bool('telemetry-insights.announce.recoveries', true)) {
             return 0;
         }
 
@@ -274,7 +276,7 @@ class Scanner
             default => 'regressions',
         };
 
-        if ($changes === [] || ! (bool) $this->config->get('telemetry-insights.announce.'.$key, true)) {
+        if ($changes === [] || ! $this->settings()->bool('telemetry-insights.announce.'.$key, true)) {
             return 0;
         }
 
@@ -326,7 +328,7 @@ class Scanner
      */
     private function announceIncidents(array $incidents): int
     {
-        if ($incidents === [] || ! (bool) $this->config->get('telemetry-insights.announce.incidents', true)) {
+        if ($incidents === [] || ! $this->settings()->bool('telemetry-insights.announce.incidents', true)) {
             return 0;
         }
 
@@ -404,5 +406,10 @@ class Scanner
             ->all();
 
         return $rules;
+    }
+
+    private function settings(): Setting
+    {
+        return new Setting($this->config);
     }
 }

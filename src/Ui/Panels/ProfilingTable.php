@@ -35,6 +35,8 @@ class ProfilingTable extends Panel
 
         $runs = ProfilingRun::query()
             ->when($lock->servicesLocked(), static fn ($query) => $query->whereIn('service', $lock->services()))
+            // Runs carry no environment: an environment-locked viewer sees none.
+            ->when($lock->environmentsLocked(), static fn ($query) => $query->whereRaw('1 = 0'))
             ->orderByDesc('id')
             ->limit(100)
             ->get();

@@ -30,11 +30,16 @@ final class IssueController
         $status = $request->query('status');
         $status = is_string($status) && $status !== '' ? IssueStatus::tryFrom($status) : null;
         $kind = $request->query('kind');
-        $kind = is_string($kind) && $kind !== '' ? IssueKind::tryFrom($kind) : null;
+        $kinds = match (true) {
+            ! is_string($kind) || $kind === '' => null,
+            $kind === 'scheduled' => array_map(static fn (IssueKind $k): string => $k->value, IssueKind::scheduled()),
+            // An unknown kind matches nothing rather than everything.
+            default => [IssueKind::tryFrom($kind)->value ?? "\0"],
+        };
 
         $issues = $visibility->query()
             ->when($status !== null, static fn ($query) => $query->where('status', $status?->value))
-            ->when($kind !== null, static fn ($query) => $query->where('kind', $kind?->value))
+            ->when($kinds !== null, static fn ($query) => $query->whereIn('kind', $kinds ?? []))
             ->orderByRaw("case when status = 'open' then 0 else 1 end")
             ->orderByDesc('last_seen_at')
             ->limit(100)
@@ -67,7 +72,15 @@ final class IssueController
             return ApiError::invalid('An action is required.');
         }
 
-        $as = new Attribution(ActionSource::Api, self::text($request, 'by') ?? self::user($request), self::text($request, 'comment'));
+        $by = self::text($request, 'by');
+
+        if (Attribution::reserved($by)) {
+            return ApiError::invalid('['.$by.'] is reserved for the scan.');
+        }
+
+        // The signed-in user is who did it; `by` only names someone when
+        // there is no user to name (a token-less integration).
+        $as = new Attribution(ActionSource::Api, self::user($request) ?? $by, self::text($request, 'comment'));
 
         $updated = match ($action) {
             'resolve' => $actions->resolve($issue, $as->actor, self::text($request, 'release'), $as),

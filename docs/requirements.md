@@ -10,9 +10,10 @@ From `composer.json`, and nothing beyond what the resolver actually enforces.
 
 | | |
 | --- | --- |
-| PHP | 8.3, 8.4 or 8.5 |
+| PHP | 8.4 or 8.5 (`^8.4\|^8.5`) |
 | Laravel | 12 or 13 (`illuminate/*`) |
-| Dashboard | `cboxdk/laravel-telemetry-ui` ^2.7 |
+| Dashboard | `cboxdk/laravel-telemetry-ui` ^3.0 |
+| MCP | `laravel/mcp` (already a dashboard dependency) |
 | Database | Any Laravel-supported connection; the package ships six tables |
 
 `cboxdk/laravel-telemetry-ui` is a hard dependency: this package reads
@@ -23,3 +24,14 @@ things.
 
 Through that dependency you also get `cboxdk/laravel-telemetry`, which
 defines the span attributes and metric names the correlation relies on.
+
+Two features need a newer `cboxdk/laravel-telemetry` **in the monitored
+apps** than the resolver enforces here:
+
+| Feature | Needs laravel-telemetry |
+| --- | --- |
+| [Scheduled-task issues](core-concepts/scheduled-tasks.md) (the schedule gauges) | ≥ 3.5 |
+| [Profiling](core-concepts/profiling.md) and ad-hoc directives | ≥ 3.5 |
+
+Without them both features find nothing to read or nowhere to send, and
+say so; nothing else changes.

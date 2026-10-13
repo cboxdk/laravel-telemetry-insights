@@ -55,6 +55,18 @@ final readonly class Directives
             : 'No directive transport for service ['.$service.']: add it under telemetry-insights.profiling.targets with its url and secret.');
     }
 
+    /** Whether there is any way to place a directive on this service. */
+    public function reachable(?string $service): bool
+    {
+        try {
+            $this->transport($service);
+
+            return true;
+        } catch (DirectiveException) {
+            return false;
+        }
+    }
+
     /**
      * Ask for it, and record the attempt either way. A failure is recorded
      * rather than thrown, so a rotation that cannot reach one service still
