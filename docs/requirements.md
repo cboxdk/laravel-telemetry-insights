@@ -13,7 +13,7 @@ From `composer.json`, and nothing beyond what the resolver actually enforces.
 | PHP | 8.4 or 8.5 (`^8.4\|^8.5`) |
 | Laravel | 12 or 13 (`illuminate/*`) |
 | Dashboard | `cboxdk/laravel-telemetry-ui` ^3.0 |
-| MCP | `laravel/mcp` (already a dashboard dependency) |
+| MCP | `laravel/mcp` ^1.0 |
 | Database | Any Laravel-supported connection; the package ships six tables |
 
 `cboxdk/laravel-telemetry-ui` is a hard dependency: this package reads

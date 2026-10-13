@@ -87,8 +87,8 @@ table, a table for issue history and one for profiling runs.
   Set `TELEMETRY_INSIGHTS_STALE_RESOLVE=false` before upgrading to keep the
   old behaviour, or raise the days.
 
-- `laravel/mcp` is now a declared dependency (it already came with the
-  dashboard).
+- `laravel/mcp` ^1.0 is now a declared dependency (it already came with
+  the dashboard, which also allows 0.8 and 0.9; the agent tools need 1.0).
 - The issues panel and `telemetry-insights:issues` label the column
   "Issue" rather than "Exception", since not every issue is one.
 
