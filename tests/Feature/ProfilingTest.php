@@ -80,7 +80,7 @@ it('signs the request the way laravel-telemetry checks it', function (): void {
 
         return $request->url() === 'https://shop.test/telemetry/directives'
             && abs(time() - (int) $timestamp) < 5
-            && $request->header('X-Telemetry-Signature')[0] === SignedHttpDirectives::sign($timestamp, $request->body(), 's3cret')
+            && $request->header('X-Telemetry-Signature')[0] === SignedHttpDirectives::sign('s3cret', $timestamp, 'POST', '', $request->body())
             && $request->data() === ['match' => 'user', 'value' => '42', 'minutes' => 120, 'profile' => true, 'reason' => 'ticket 881', 'created_by' => 'insights'];
     });
 });
@@ -242,17 +242,27 @@ it('shows what was profiled on the dashboard', function (): void {
 });
 
 it('signs exactly as laravel-telemetry\'s DirectivesController verifies', function (): void {
-    // The controller's check, restated from
-    // cboxdk/laravel-telemetry src/Http/Controllers/DirectivesController.php:
-    // a digit-only timestamp within 300s, and
-    // hash_equals('sha256='.hash_hmac('sha256', $timestamp.'.'.$request->getContent(), $secret), $signature).
-    $verifies = static function (Request $request, string $secret): bool {
+    // The controller's check, restated from cboxdk/laravel-telemetry
+    // src/Http/Controllers/DirectivesController.php: a digit-only timestamp
+    // within 300s; hash_equals(signature($secret, $timestamp, $method, $id,
+    // $request->getContent()), $signature), where the signed string is
+    // "<timestamp>.<METHOD>.<id>.<body>" and <id> is empty for POST; and
+    // each signature accepted once.
+    $seen = [];
+    $verifies = static function (Request $request, string $secret) use (&$seen): bool {
         $timestamp = $request->header('X-Telemetry-Timestamp')[0] ?? '';
         $signature = $request->header('X-Telemetry-Signature')[0] ?? '';
+        $expected = 'sha256='.hash_hmac('sha256', $timestamp.'.'.strtoupper($request->method()).'..'.$request->body(), $secret);
+
+        if (isset($seen[$signature])) {
+            return false;
+        }
+
+        $seen[$signature] = true;
 
         return ctype_digit($timestamp)
             && abs(time() - (int) $timestamp) <= 300
-            && hash_equals('sha256='.hash_hmac('sha256', $timestamp.'.'.$request->body(), $secret), $signature);
+            && hash_equals($expected, $signature);
     };
 
     Http::fake(['shop.test/telemetry/directives' => static fn (Request $request) => $verifies($request, 's3cret')
@@ -272,6 +282,29 @@ it('signs exactly as laravel-telemetry\'s DirectivesController verifies', functi
 
     expect($refused->status)->toBe(ProfilingRun::FAILED)
         ->and($refused->error)->toContain('(401)');
+});
+
+it('binds the method and directive id into the signature', function (): void {
+    $post = SignedHttpDirectives::sign('s3cret', '1760000000', 'post', '', '{"a":1}');
+
+    expect($post)->toBe('sha256='.hash_hmac('sha256', '1760000000.POST..{"a":1}', 's3cret'))
+        ->and(SignedHttpDirectives::sign('s3cret', '1760000000', 'DELETE', '01JX', ''))
+        ->toBe('sha256='.hash_hmac('sha256', '1760000000.DELETE.01JX.', 's3cret'))
+        ->and(SignedHttpDirectives::sign('s3cret', '1760000000', 'GET', '', '{"a":1}'))->not->toBe($post);
+});
+
+it('signs byte-for-byte as the core controller does, when it is installed', function (): void {
+    $controller = 'Cbox\\Telemetry\\Http\\Controllers\\DirectivesController';
+    $core = [$controller, 'signature'];
+
+    if (! is_callable($core)) {
+        $this->markTestSkipped('The installed laravel-telemetry predates DirectivesController::signature() (3.5).');
+    }
+
+    foreach ([['POST', '', '{"match":"route","value":"/"}'], ['GET', '', ''], ['DELETE', '01JX', '']] as [$method, $id, $body]) {
+        expect(SignedHttpDirectives::sign('s3cret', '1760000000', $method, $id, $body))
+            ->toBe($core('s3cret', '1760000000', $method, $id, $body));
+    }
 });
 
 it('cools a refused route down for a shorter while, then tries it again', function (): void {

@@ -96,8 +96,12 @@ The monitored app enforces its own limits: at most
   The key is the service name the metrics carry. Each request is a POST to
   `{url}/telemetry/directives` (`path` overrides it), signed with
   `X-Telemetry-Timestamp` and
-  `X-Telemetry-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<body>">`.
-  The app allows five minutes of clock skew.
+  `X-Telemetry-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.POST..<body>">`
+  — the method and (for a delete) the directive id are part of what is
+  signed, so a request cannot be replayed as another. The app allows five
+  minutes of clock skew and accepts each signature **once**: every request
+  is signed afresh, and two identical directives asked for in the same
+  second are refused as a replay of the first.
 
 - **In-process**, when `cboxdk/laravel-telemetry` with directives runs in
   this same app: a service with no target that is this app's

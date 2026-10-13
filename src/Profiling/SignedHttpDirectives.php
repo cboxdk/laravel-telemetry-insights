@@ -14,10 +14,17 @@ use Throwable;
  * set:
  *
  *     X-Telemetry-Timestamp: <unix seconds>
- *     X-Telemetry-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<raw body>">
+ *     X-Telemetry-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<METHOD>.<id>.<raw body>">
  *
- * The body is signed exactly as sent, so it is encoded once and passed
- * through untouched.
+ * `<id>` is the directive id for a DELETE and empty otherwise, so a signed
+ * request cannot be replayed as a different method or against another
+ * directive. The body is signed exactly as sent, so it is encoded once and
+ * passed through untouched.
+ *
+ * The app accepts each signature ONCE. Every request is signed afresh when
+ * it is made; a retry must go through {@see place()} again, never resend the
+ * same signed request. Two identical directives asked for within the same
+ * second sign identically, and the second is refused as a replay.
  */
 final readonly class SignedHttpDirectives implements PlacesDirectives
 {
@@ -41,7 +48,7 @@ final readonly class SignedHttpDirectives implements PlacesDirectives
                 ->withHeaders([
                     'Accept' => 'application/json',
                     'X-Telemetry-Timestamp' => $timestamp,
-                    'X-Telemetry-Signature' => self::sign($timestamp, $body, $this->secret),
+                    'X-Telemetry-Signature' => self::sign($this->secret, $timestamp, 'POST', '', $body),
                 ])
                 ->withBody($body, 'application/json')
                 ->post(rtrim($this->url, '/').'/'.ltrim($this->path, '/'));
@@ -66,8 +73,13 @@ final readonly class SignedHttpDirectives implements PlacesDirectives
         return new PlacedDirective($id, is_int($expires) ? $expires : time() + $request->minutes * 60);
     }
 
-    public static function sign(string $timestamp, string $body, string $secret): string
+    /**
+     * The signature laravel-telemetry's `DirectivesController::signature()`
+     * expects, same argument order. Kept here rather than called there so
+     * this works against an app this package does not share code with.
+     */
+    public static function sign(string $secret, string $timestamp, string $method, string $id, string $body): string
     {
-        return 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, $secret);
+        return 'sha256='.hash_hmac('sha256', $timestamp.'.'.strtoupper($method).'.'.$id.'.'.$body, $secret);
     }
 }
