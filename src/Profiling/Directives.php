@@ -38,7 +38,7 @@ final readonly class Directives
             return $this->http($service, $targets[$service]);
         }
 
-        if (LocalDirectives::available() && ($service === null || $service === $this->localService())) {
+        if (LocalDirectives::available($this->container) && ($service === null || $service === $this->localService())) {
             return new LocalDirectives($this->container);
         }
 

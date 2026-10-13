@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use Cbox\Telemetry\Http\Controllers\DirectivesController;
+use Cbox\Telemetry\TelemetryManager;
+use Cbox\Telemetry\TelemetryServiceProvider;
 use Cbox\TelemetryInsights\Mcp\Tools\ProfilingRotationTool;
 use Cbox\TelemetryInsights\Mcp\Tools\RequestDirectiveTool;
 use Cbox\TelemetryInsights\Models\ProfilingRun;
@@ -101,9 +104,33 @@ it('says what to configure when there is no way to reach a service', function ()
         ->and($run->error)->toContain('add it under telemetry-insights.profiling.targets');
 });
 
-it('only goes in-process when this app runs laravel-telemetry with directives', function (): void {
-    // The laravel-telemetry this suite installs predates directives.
+it('goes in-process when this app runs laravel-telemetry with directives', function (): void {
+    // Not running here until its provider is registered.
     expect(LocalDirectives::available())->toBeFalse();
+
+    $this->app->register(TelemetryServiceProvider::class);
+    expect(LocalDirectives::available())->toBeTrue();
+
+    Http::fake();
+    config()->set('telemetry-insights.profiling.targets', []);
+
+    $run = app(Directives::class)->place(
+        new DirectiveRequest('route', '/checkout', minutes: 15, profile: true, reason: 'in-process'),
+        ProfilingRun::ADHOC,
+    );
+
+    $store = app(TelemetryManager::class)->directives();
+    $placed = collect($store->all())->firstWhere('id', $run->directive_id);
+
+    expect($run->status)->toBe(ProfilingRun::PLACED)
+        ->and($placed)->not->toBeNull()
+        ->and($placed?->match)->toBe('route')
+        ->and($placed?->value)->toBe('/checkout')
+        ->and($placed?->profile)->toBeTrue()
+        ->and($placed?->createdBy)->toBe('insights');
+
+    // Nothing went over HTTP.
+    Http::assertNothingSent();
 });
 
 it('refuses a directive that cannot match anything', function (string $match, string $value, ?string $key): void {
@@ -293,17 +320,10 @@ it('binds the method and directive id into the signature', function (): void {
         ->and(SignedHttpDirectives::sign('s3cret', '1760000000', 'GET', '', '{"a":1}'))->not->toBe($post);
 });
 
-it('signs byte-for-byte as the core controller does, when it is installed', function (): void {
-    $controller = 'Cbox\\Telemetry\\Http\\Controllers\\DirectivesController';
-    $core = [$controller, 'signature'];
-
-    if (! is_callable($core)) {
-        $this->markTestSkipped('The installed laravel-telemetry predates DirectivesController::signature() (3.5).');
-    }
-
+it('signs byte-for-byte as the core controller does', function (): void {
     foreach ([['POST', '', '{"match":"route","value":"/"}'], ['GET', '', ''], ['DELETE', '01JX', '']] as [$method, $id, $body]) {
         expect(SignedHttpDirectives::sign('s3cret', '1760000000', $method, $id, $body))
-            ->toBe($core('s3cret', '1760000000', $method, $id, $body));
+            ->toBe(DirectivesController::signature('s3cret', '1760000000', $method, $id, $body));
     }
 });
 
