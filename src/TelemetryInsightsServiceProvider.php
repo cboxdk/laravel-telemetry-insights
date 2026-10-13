@@ -8,9 +8,12 @@ use Cbox\TelemetryInsights\Console\AlertsCommand;
 use Cbox\TelemetryInsights\Console\DigestCommand;
 use Cbox\TelemetryInsights\Console\IssueCommand;
 use Cbox\TelemetryInsights\Console\IssuesCommand;
+use Cbox\TelemetryInsights\Console\ProfilingCommand;
 use Cbox\TelemetryInsights\Console\ScanCommand;
+use Cbox\TelemetryInsights\Console\WatchCommand;
 use Cbox\TelemetryInsights\Contracts\CorrelatesIncidents;
 use Cbox\TelemetryInsights\Correlate\IncidentCorrelator;
+use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryInsights\Ui\InsightsPages;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Config\Repository as Config;
@@ -54,6 +57,8 @@ class TelemetryInsightsServiceProvider extends ServiceProvider
                 DigestCommand::class,
                 IssuesCommand::class,
                 IssueCommand::class,
+                ProfilingCommand::class,
+                WatchCommand::class,
             ]);
             $this->scheduleJobs();
         }
@@ -62,7 +67,7 @@ class TelemetryInsightsServiceProvider extends ServiceProvider
     }
 
     /**
-     * Put the three jobs on the host's scheduler, unless they set the cron
+     * Put the jobs on the host's scheduler, unless they set the cron
      * to null and would rather schedule them themselves.
      */
     private function scheduleJobs(): void
@@ -89,6 +94,11 @@ class TelemetryInsightsServiceProvider extends ServiceProvider
                 'alerts' => AlertsCommand::NAME,
                 'digest' => DigestCommand::NAME,
             ];
+
+            // Off by default: it costs the monitored apps something.
+            if ((new Setting($config))->bool('telemetry-insights.profiling.rotation.enabled', false)) {
+                $jobs['profiling'] = ProfilingCommand::NAME;
+            }
 
             foreach ($jobs as $key => $command) {
                 $cron = $config->get('telemetry-insights.schedule.'.$key);

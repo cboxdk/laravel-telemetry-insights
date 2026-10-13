@@ -33,7 +33,8 @@ return new class extends Migration
 
         Schema::create(Tables::issueEvents(), function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('issue_id')->constrained(Tables::issues())->cascadeOnDelete();
+            // Indexed explicitly: Postgres does not index a foreign key's column.
+            $table->foreignId('issue_id')->index()->constrained(Tables::issues())->cascadeOnDelete();
             $table->string('action', 32);
             // Who, when the door knows: a user, `--by`, or nobody.
             $table->string('actor')->nullable();

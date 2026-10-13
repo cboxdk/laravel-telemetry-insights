@@ -27,6 +27,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $subject
  * @property string|null $environment
  * @property string|null $last_trace_id
+ * @property Carbon|null $archived_at
+ * @property int|null $escalation_spike_limit
+ * @property int|null $escalation_burst_limit
  * @property string|null $type
  * @property string|null $message
  * @property string|null $service
@@ -62,6 +65,9 @@ class Issue extends Model
             'snoozed_until' => 'immutable_datetime',
             'resolved_at' => 'immutable_datetime',
             'notified_at' => 'immutable_datetime',
+            'archived_at' => 'immutable_datetime',
+            'escalation_spike_limit' => 'integer',
+            'escalation_burst_limit' => 'integer',
         ];
     }
 

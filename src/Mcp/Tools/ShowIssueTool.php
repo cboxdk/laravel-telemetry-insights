@@ -75,6 +75,9 @@ final class ShowIssueTool extends LedgerTool
             'Kind' => $kind->label(),
             'Status' => $status->label()
                 .($status === IssueStatus::Snoozed ? ' until '.self::time($issue->snoozed_until) : '')
+                .($status === IssueStatus::Archived
+                    ? ' (reopens above '.$issue->escalation_spike_limit.' an hour sustained, or '.$issue->escalation_burst_limit.' in one hour)'
+                    : '')
                 .($issue->assignee !== null ? ' · assigned to '.$issue->assignee : ''),
             'Service' => implode(' · ', array_filter([$issue->service ?? '', $issue->environment ?? ''])),
             'Task' => $issue->subject !== null ? '`'.$issue->subject.'`' : '',

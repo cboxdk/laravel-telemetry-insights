@@ -28,6 +28,9 @@ use Illuminate\Support\Carbon;
  *   ({@see ScheduleProblem::$since}). Resolving a task that is still behind
  *   says "I know"; it should not be contradicted on the next pass.
  *
+ * - after a person resolved a FAILING task, also any failure after the
+ *   resolve: it was called fixed and failed again.
+ *
  * Ignored and snoozed issues are kept current but never reopened or
  * resolved by the scan.
  */
@@ -88,7 +91,7 @@ class ScheduleLedger
             $existing = $known->get($fingerprint);
 
             $changes[] = $existing instanceof Issue
-                ? $this->existing($existing, $problem, $at, $persist)
+                ? $this->existing($existing, $problem, $at, $persist, $scope, $now)
                 : $this->fresh((string) $fingerprint, $problem, $at, $persist);
         }
 
@@ -127,9 +130,9 @@ class ScheduleLedger
         return new IssueChange($issue, ChangeKind::New, self::count($problem));
     }
 
-    private function existing(Issue $issue, ScheduleProblem $problem, Carbon $at, bool $persist): IssueChange
+    private function existing(Issue $issue, ScheduleProblem $problem, Carbon $at, bool $persist, RequestScope $scope, int $now): IssueChange
     {
-        $back = $this->isBack($issue, $problem);
+        $back = $this->isBack($issue, $problem, $scope, $now);
 
         $issue->forceFill([
             'message' => $problem->summary,
@@ -150,7 +153,7 @@ class ScheduleLedger
         return new IssueChange($issue, $back ? ChangeKind::Regression : ChangeKind::Recurring, self::count($problem));
     }
 
-    private function isBack(Issue $issue, ScheduleProblem $problem): bool
+    private function isBack(Issue $issue, ScheduleProblem $problem, RequestScope $scope, int $now): bool
     {
         if ($issue->status !== IssueStatus::Resolved) {
             return false;
@@ -162,12 +165,27 @@ class ScheduleLedger
 
         $resolvedAt = $issue->resolved_at;
 
-        return $resolvedAt === null || $problem->since > $resolvedAt->getTimestamp();
+        if ($resolvedAt === null || $problem->since > $resolvedAt->getTimestamp()) {
+            return true;
+        }
+
+        // A failure streak that began before the resolve but kept failing
+        // AFTER it: the person called it fixed and it was not. Unlike a miss
+        // or an overrun, a failure is an event with a time, so this is
+        // decidable — one read, and a failed read decides nothing.
+        if ($problem->kind === IssueKind::TaskFailing && $problem->task !== null) {
+            $failures = $this->monitor->failuresSince($scope, $problem->service, $problem->environment, $problem->task, $resolvedAt->getTimestamp(), $now);
+
+            return $failures !== null && $failures > 0;
+        }
+
+        return false;
     }
 
     /**
-     * Open (or snoozed) scheduled-task issues this reading is entitled to
-     * call healthy, and that it did not find a problem for.
+     * Open scheduled-task issues this reading is entitled to call healthy,
+     * and that it did not find a problem for. Snoozed ones are a person's
+     * decision and are left alone while the snooze lasts, like ignored ones.
      *
      * @param  list<array-key>  $firing
      * @return list<Issue>
@@ -176,7 +194,10 @@ class ScheduleLedger
     {
         $candidates = Issue::query()
             ->whereIn('kind', array_map(static fn (IssueKind $k): string => $k->value, IssueKind::scheduled()))
-            ->whereIn('status', [IssueStatus::Open->value, IssueStatus::Snoozed->value])
+            // Effectively open: open, or a snooze that has run out.
+            ->where(static fn ($query) => $query
+                ->where('status', IssueStatus::Open->value)
+                ->orWhere(static fn ($q) => $q->where('status', IssueStatus::Snoozed->value)->where('snoozed_until', '<=', Carbon::now())))
             ->when($firing !== [], static fn ($query) => $query->whereNotIn('fingerprint', $firing))
             ->get();
 

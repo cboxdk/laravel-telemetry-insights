@@ -119,12 +119,13 @@ it('offers the decisions on the status cell, and only the ones that apply', func
     $actions = render(IssuesTable::class)['rows'][0]['status']['actions'];
     $labels = array_column($actions, 'label');
 
-    expect($labels)->toBe(['Resolve', 'Snooze for a day', 'Ignore'])
+    expect($labels)->toBe(['Resolve', 'Snooze for a day', 'Archive until escalating', 'Ignore'])
         ->and($actions[0]['endpoint'])->toBe('insights/issues/open00000001')
         ->and($actions[0]['body'])->toBe(['action' => 'resolve'])
+        ->and($actions[2]['body'])->toBe(['action' => 'archive'])
         // Ignoring is forever, so it asks first and reads as destructive.
-        ->and($actions[2]['confirm'])->toContain('for good')
-        ->and($actions[2]['tone'])->toBe('danger');
+        ->and($actions[3]['confirm'])->toContain('for good')
+        ->and($actions[3]['tone'])->toBe('danger');
 });
 
 it('offers only reopen once an issue is settled', function (): void {

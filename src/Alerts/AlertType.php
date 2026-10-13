@@ -33,6 +33,9 @@ enum AlertType: string
      */
     case ScheduledTask = 'scheduled_task';
 
+    /** An archived issue's volume escalated, so it reopened. */
+    case Escalation = 'escalation';
+
     /** Share of requests ending 5xx, over the window. */
     case ErrorRate = 'error_rate';
 
@@ -53,6 +56,7 @@ enum AlertType: string
             self::IssueSpike => 'Issue spike',
             self::Incident => 'Incident opened',
             self::ScheduledTask => 'Scheduled task',
+            self::Escalation => 'Escalating',
             self::ErrorRate => 'Error rate',
             self::LatencyP95 => 'Latency (p95)',
             self::Throughput => 'Throughput',
@@ -76,6 +80,6 @@ enum AlertType: string
      */
     public function isEvent(): bool
     {
-        return in_array($this, [self::NewIssue, self::Regression, self::Incident, self::ScheduledTask], true);
+        return in_array($this, [self::NewIssue, self::Regression, self::Incident, self::ScheduledTask, self::Escalation], true);
     }
 }

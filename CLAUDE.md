@@ -24,6 +24,13 @@ digests. The dashboard reads; this remembers.
 - `Schedule/` — `ScheduleMonitor` reads the scheduler gauges
   laravel-telemetry publishes and returns `ScheduleProblem`s; thresholds
   (with per-task overrides) in `TaskThresholds`.
+- `Profiling/` — directives on monitored apps: `Directives` picks the
+  transport (`LocalDirectives` in-process, `SignedHttpDirectives` over the
+  core's signed endpoint) and records each run; `ProfilingRotation` ranks
+  routes by impact and profiles the top few in turn.
+- `Issues/EscalationWatch` + `StaleIssues` — archive-until-escalating limits
+  and the quiet-issue auto-resolve; `IssueVisibility` applies the
+  dashboard's tenancy lock to every issue surface.
 - `Mcp/Tools/` — the ledger as laravel/mcp tools, registered on the
   dashboard's MCP server from `Ui/InsightsPages` via `TelemetryUi::mcpTool()`.
 - `Alerts/` — `RuleMeasurer` (rule → number, through the query IR),

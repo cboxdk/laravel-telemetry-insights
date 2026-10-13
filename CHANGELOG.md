@@ -24,14 +24,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Needs a migration (`php artisan migrate`): four columns on the issues table
-and a fifth table for issue history.
+Needs a migration (`php artisan migrate`): seven columns on the issues
+table, a table for issue history and one for profiling runs.
 
 ### Added
 
+- **Archive until escalating.** A new `archived` status for error groups:
+  quiet until the group's hourly volume goes past limits learned from its
+  previous week — over the spike limit (95th-percentile hour × 3) for two
+  hours running, or over the burst limit (worst hour × 1.5) in any one
+  hour, so a nightly job's usual burst reopens nothing. An escalation
+  reopens the issue, is announced (`announce.escalations`), fires the new
+  `escalation` rule type and is written to the history. From the console
+  (`issue archive`), the API (`action: archive`), the issues panel and the
+  `archive_issue` agent tool.
+- **Profiling rotation** (off by default). On a schedule, the costliest
+  routes (total time, or p95 × request rate) not profiled in the last day
+  get a time-limited `route` directive with a CPU profile on the monitored
+  app — in-process when `cboxdk/laravel-telemetry` with directives runs
+  here, otherwise over its signed endpoint (`profiling.targets`). Every
+  run is kept in `telemetry_profiling_runs`, shown on a Profiling page, by
+  `telemetry-insights:profiling --list` and by the `profiling_rotation`
+  agent tool.
+- **Ad-hoc directives.** `telemetry-insights:watch --user=42 --minutes=120
+  --profile` and the `request_directive` agent tool (gated like the other
+  write tools) keep one slice of a monitored app's traffic for a while.
+
 - **Scheduled-task issues.** Each scan reads the schedule gauges
-  `cboxdk/laravel-telemetry` publishes (schedule monitoring, unreleased at
-  the time of writing) and turns what is wrong into issues: a stopped
+  `cboxdk/laravel-telemetry` 3.5 publishes (schedule monitoring) and turns what is wrong into issues: a stopped
   scheduler, a task that missed its slot, one that is overrunning, and one
   that failed N times in a row (`failure_threshold`, default 1). They are
   conditions, so the scan resolves them itself when they clear — a missed
@@ -58,10 +78,32 @@ and a fifth table for issue history.
 
 ### Changed
 
-- `laravel/mcp` is now a declared dependency (it already came with the
-  dashboard).
+- **Upgrade note — quiet error groups now resolve themselves.** An open
+  error group with no occurrence for `stale.resolve_after_days` (14) is
+  resolved by the scan and recorded as automatic. On an install with a long
+  ledger, the **first scans after upgrading resolve every open group that
+  has been quiet that long** (silently — the resolves are not announced),
+  and the next occurrence of any of them is announced as a **Regression**.
+  Set `TELEMETRY_INSIGHTS_STALE_RESOLVE=false` before upgrading to keep the
+  old behaviour, or raise the days.
+
+- Requires `cboxdk/laravel-telemetry-ui` ^3.1, and through it
+  `cboxdk/laravel-telemetry` ^3.5 — the release with the schedule gauges
+  and directives.
+- `laravel/mcp` ^1.0 is now a declared dependency (it already came with
+  the dashboard, which also allows 0.8 and 0.9; the agent tools need 1.0).
 - The issues panel and `telemetry-insights:issues` label the column
   "Issue" rather than "Exception", since not every issue is one.
+
+### Fixed
+
+- **The issues and incidents panels and HTTP API ignored the dashboard's
+  tenancy lock.** A viewer locked to some services saw — and could change —
+  every service's issues and incidents. All four now narrow through the
+  lock and fail closed, as the agent tools do; an issue or incident outside
+  it is a 404. An incident shows only when every service it touched is the
+  viewer's, and neither incidents nor error groups (which carry no
+  environment) show to an environment-locked viewer.
 
 ## [1.0.0] - 2026-09-27
 

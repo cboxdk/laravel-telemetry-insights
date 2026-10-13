@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Cbox\TelemetryInsights\Ui\Http;
 
 use Cbox\TelemetryInsights\Issues\IncidentStatus;
+use Cbox\TelemetryInsights\Issues\IssueVisibility;
 use Cbox\TelemetryInsights\Models\Incident;
 use Cbox\TelemetryUi\Http\Api\ApiError;
 use Illuminate\Http\JsonResponse;
@@ -19,12 +20,15 @@ use Illuminate\Support\Facades\Gate;
  */
 final class IncidentController
 {
-    public function index(): JsonResponse
+    public function index(IssueVisibility $visibility): JsonResponse
     {
+        // The tenancy lock, in PHP: services is a JSON list, and "every one
+        // of them is the viewer's" is not portable SQL.
         $incidents = Incident::query()
             ->orderByDesc('onset_at')
             ->limit(50)
-            ->get();
+            ->get()
+            ->filter(static fn (Incident $i): bool => $visibility->allowsIncident($i));
 
         return new JsonResponse([
             'incidents' => $incidents->map(static fn (Incident $i): array => self::payload($i))->values()->all(),
@@ -34,7 +38,7 @@ final class IncidentController
     /**
      * `POST incidents/{signature}` with `{"action": "acknowledge"}`.
      */
-    public function update(Request $request, string $signature): JsonResponse
+    public function update(Request $request, IssueVisibility $visibility, string $signature): JsonResponse
     {
         if (! Gate::allows('manageTelemetryUi')) {
             return ApiError::forbidden('You are not authorized to change incidents.');
@@ -42,7 +46,7 @@ final class IncidentController
 
         $incident = Incident::query()->firstWhere('signature', $signature);
 
-        if (! $incident instanceof Incident) {
+        if (! $incident instanceof Incident || ! $visibility->allowsIncident($incident)) {
             return ApiError::notFound('No incident recorded under that signature.');
         }
 

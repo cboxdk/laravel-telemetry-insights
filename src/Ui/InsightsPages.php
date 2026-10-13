@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace Cbox\TelemetryInsights\Ui;
 
+use Cbox\TelemetryInsights\Mcp\Tools\ArchiveIssueTool;
 use Cbox\TelemetryInsights\Mcp\Tools\IgnoreIssueTool;
 use Cbox\TelemetryInsights\Mcp\Tools\ListIssuesTool;
+use Cbox\TelemetryInsights\Mcp\Tools\ProfilingRotationTool;
 use Cbox\TelemetryInsights\Mcp\Tools\ReopenIssueTool;
+use Cbox\TelemetryInsights\Mcp\Tools\RequestDirectiveTool;
 use Cbox\TelemetryInsights\Mcp\Tools\ResolveIssueTool;
 use Cbox\TelemetryInsights\Mcp\Tools\ShowIssueTool;
+use Cbox\TelemetryInsights\Support\Setting;
 use Cbox\TelemetryUi\Facades\TelemetryUi;
 use Cbox\TelemetryUi\Http\Middleware\Authorize;
 use Cbox\TelemetryUi\TelemetryUiManager;
@@ -41,6 +45,9 @@ final class InsightsPages
         TelemetryUi::page('issues', 'Issues', group: 'Insights', icon: 'bug');
         TelemetryUi::panel(Panels\IssuesTable::class, page: 'issues');
 
+        TelemetryUi::page('profiling', 'Profiling', group: 'Insights', icon: 'activity');
+        TelemetryUi::panel(Panels\ProfilingTable::class, page: 'profiling');
+
         self::routes();
         self::agentTools();
     }
@@ -54,11 +61,12 @@ final class InsightsPages
      */
     private static function agentTools(): void
     {
-        if (! (bool) config('telemetry-insights.mcp.enabled', true)) {
+        if (! app(Setting::class)->bool('telemetry-insights.mcp.enabled', true)) {
             return;
         }
 
-        foreach ([ListIssuesTool::class, ShowIssueTool::class, ResolveIssueTool::class, IgnoreIssueTool::class, ReopenIssueTool::class] as $tool) {
+        foreach ([ListIssuesTool::class, ShowIssueTool::class, ResolveIssueTool::class, IgnoreIssueTool::class, ReopenIssueTool::class, ArchiveIssueTool::class,
+            ProfilingRotationTool::class, RequestDirectiveTool::class] as $tool) {
             TelemetryUi::mcpTool($tool);
         }
     }

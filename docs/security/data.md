@@ -1,16 +1,17 @@
 ---
 title: What this package stores
-description: The five tables, what lands in them, and what never does
+description: The six tables, what lands in them, and what never does
 weight: 61
 ---
 
 # What this package stores
 
-## The five tables
+## The six tables
 
 | Table | Holds |
 | --- | --- |
 | `telemetry_issues` | Fingerprint, kind, exception class or task name, message, service, environment, latest trace id, status, assignee, timestamps |
+| `telemetry_profiling_runs` | Each directive asked for: service, match and value (a route, path, job, user id or context value), minutes, reason, who asked, the directive id, and whether it was placed |
 | `telemetry_issue_events` | Each decision about an issue: action, actor, source (console, API, agent, scan, code), comment, when |
 | `telemetry_incidents` | Signature, title, onset, the suspected cause and its evidence, member fingerprints |
 | `telemetry_alert_rules` | Name, type, threshold, window, cooldown, scope, channels |
@@ -42,6 +43,10 @@ The issue history records **who** made each decision: the `--by` value, the
 API's `by` field or signed-in user, or the MCP transport's user — an email
 address when the user model has one — plus any comment they gave. That is
 your team's data about your team, kept as long as the issue row.
+
+An ad-hoc directive on a user (`--user=42`) keeps that **user id** in
+`telemetry_profiling_runs`, with the reason given. Nothing prunes the table;
+delete old rows if that matters under your retention rules.
 
 ## Writing
 

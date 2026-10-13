@@ -67,12 +67,24 @@ function fakeSchedule(array $gauges): void
             $query = is_string($params['query'] ?? null) ? $params['query'] : '';
             $gauges = scheduleGauges();
 
+            $pick = static function (string $key) use ($gauges, $query): array {
+                $series = $gauges[$key] ?? [];
+
+                return is_callable($series) ? $series($query) : $series;
+            };
+
+            // Background runs have their own counter, which also carries
+            // the exit code.
+            if (str_contains($query, 'schedule_background_tasks_failed_total')) {
+                return Http::response(promVector($pick(str_contains($query, 'task="') ? 'bg_streak' : 'bg_failed')));
+            }
+
             if (str_contains($query, 'schedule_tasks_failed_total')) {
-                return Http::response(promVector($gauges[str_contains($query, 'task="') ? 'streak' : 'failed'] ?? []));
+                return Http::response(promVector($pick(str_contains($query, 'task="') ? 'streak' : 'failed')));
             }
 
             foreach ($gauges as $metric => $series) {
-                if (str_contains($query, $metric)) {
+                if (str_starts_with($metric, 'schedule_') && is_array($series) && str_contains($query, $metric)) {
                     return Http::response(promVector($series));
                 }
             }
@@ -421,4 +433,74 @@ it('describes the change kinds it reports', function (): void {
         ->and(ChangeKind::New->isNews())->toBeTrue()
         ->and(ChangeKind::Regression->isNews())->toBeTrue()
         ->and(IssueKind::scheduled())->not->toContain(IssueKind::Exception);
+});
+
+it('does not call a task failing when it has succeeded since its failures', function (): void {
+    $now = time();
+    // A week-long window saw a failure, but the since-success read says none.
+    fakeSchedule(schedule($now, [
+        'schedule_task_last_succeeded_seconds' => [series($now - 3600)],
+        'failed' => [series(1)],
+        'streak' => [],
+    ]));
+
+    expect(app(ScheduleLedger::class)->record(new RequestScope(period: '7d'), $now))->toBe([]);
+});
+
+it('counts background runs in a failure streak', function (): void {
+    config()->set('telemetry-insights.scheduled_tasks.failure_threshold', 3);
+
+    $now = time();
+    fakeSchedule(schedule($now, [
+        'schedule_task_last_succeeded_seconds' => [series($now - 86_400)],
+        'bg_failed' => [series(2)],
+        'streak' => [series(1)],
+        'bg_streak' => [series(2)],
+    ]));
+
+    $changes = recordSchedule($now);
+
+    expect(changeKinds($changes))->toBe(['new:scheduled_task_failing'])
+        ->and($changes[0]->count)->toBe(3);
+});
+
+it('reopens a failing task a person resolved when it fails again after the resolve', function (): void {
+    $now = time();
+    $failing = static fn (bool $failedSinceResolve): array => schedule($now, [
+        'schedule_task_last_succeeded_seconds' => [series($now - 86_400)],
+        'failed' => [series(1)],
+        // The since-resolve read is the short one (a minute); the streak
+        // read reaches back to the last success.
+        'streak' => static fn (string $query): array => str_contains($query, '[60s]')
+            ? ($failedSinceResolve ? [series(1)] : [])
+            : [series(2)],
+    ]);
+
+    fakeSchedule($failing(false));
+    recordSchedule($now);
+    app(IssueActions::class)->resolve(Issue::query()->sole(), 'sylvester');
+
+    expect(changeKinds(recordSchedule($now + 30)))->toBe(['recurring:scheduled_task_failing'])
+        ->and(Issue::query()->sole()->status)->toBe(IssueStatus::Resolved);
+
+    fakeSchedule($failing(true));
+
+    expect(changeKinds(recordSchedule($now + 30)))->toBe(['regression:scheduled_task_failing'])
+        ->and(Issue::query()->sole()->status)->toBe(IssueStatus::Open);
+});
+
+it('never resolves a snoozed scheduled-task issue, until the snooze runs out', function (): void {
+    $now = time();
+    fakeSchedule(missedSchedule($now));
+    recordSchedule($now);
+    app(IssueActions::class)->snooze(Issue::query()->sole(), Carbon::now()->addDay());
+
+    fakeSchedule(schedule($now));
+
+    expect(recordSchedule($now + 60))->toBe([])
+        ->and(Issue::query()->sole()->status)->toBe(IssueStatus::Snoozed);
+
+    Issue::query()->sole()->forceFill(['snoozed_until' => Carbon::now()->subMinute()])->save();
+
+    expect(changeKinds(recordSchedule($now + 120)))->toBe(['recovered:scheduled_task_missed']);
 });

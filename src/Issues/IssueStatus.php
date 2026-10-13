@@ -23,6 +23,12 @@ enum IssueStatus: string
     /** Quiet until `snoozed_until`, then open again. */
     case Snoozed = 'snoozed';
 
+    /**
+     * Quiet until its volume escalates beyond what it did the week before
+     * it was archived — then open again, on its own. Error groups only.
+     */
+    case Archived = 'archived';
+
     public function label(): string
     {
         return match ($this) {
@@ -30,6 +36,7 @@ enum IssueStatus: string
             self::Resolved => 'Resolved',
             self::Ignored => 'Ignored',
             self::Snoozed => 'Snoozed',
+            self::Archived => 'Archived until escalating',
         };
     }
 

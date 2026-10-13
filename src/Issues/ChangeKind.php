@@ -23,9 +23,15 @@ enum ChangeKind: string
      */
     case Recovered = 'recovered';
 
+    /**
+     * An archived error group whose volume went beyond what it did the
+     * week before it was archived, so it is open again.
+     */
+    case Escalated = 'escalated';
+
     /** Worth telling someone about, as opposed to merely true. */
     public function isNews(): bool
     {
-        return $this === self::New || $this === self::Regression;
+        return $this === self::New || $this === self::Regression || $this === self::Escalated;
     }
 }

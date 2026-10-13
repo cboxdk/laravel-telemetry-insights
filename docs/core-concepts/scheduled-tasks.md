@@ -31,10 +31,17 @@ is not "missed" by the servers that lost the lock. A task that has never
 run since monitoring was enabled has nothing to compare against and is not
 judged until it has.
 
-"In a row" means failures since the task last succeeded. Counting that
+"In a row" means failures since the task last succeeded, counting
+`runInBackground()` runs too. A task that failed earlier in a long window
+but has succeeded since is not failing. Counting that
 costs one read per failing task, so it only happens for tasks that failed
 in the scan's window, and at most `max_failure_probes` (20) of them per
 pass.
+
+laravel-telemetry 3.5 publishes the failure counters at zero for every
+listed task, so the first failure is an increase like any other. **Against
+an older core, a task's very first failure is invisible** — a counter that
+appears already at 1 has no increase — and the issue opens on the second.
 
 ## Conditions, not occurrences
 
@@ -54,7 +61,11 @@ What counts as *back again* (a regression, reopened and announced):
   misses again. Resolving says "I know about this one"; the next pass
   should not contradict it.
 
-Ignored and snoozed issues are kept current but never announced, reopened
+After a person resolved a **failing** task, any failure after the resolve
+reopens it too: a failure has a time, so "it failed again after you called
+it fixed" is decidable.
+
+Ignored and snoozed issues (until the snooze runs out) are kept current but never announced, reopened
 or resolved by the scan.
 
 The issue's fingerprint is derived from kind, service, environment and
@@ -108,8 +119,9 @@ command name, or the description you gave a closure.
 
 ## Requirements
 
-`cboxdk/laravel-telemetry` with schedule monitoring (the gauges
+`cboxdk/laravel-telemetry` ≥ 3.5 with schedule monitoring (the gauges
 `schedule_run_last_seen_seconds` and `schedule_task_*_seconds`, and the
-`schedule_tasks_failed_total` counter), a metric store shared by the hosts
+`schedule_tasks_failed_total` and `schedule_background_tasks_failed_total`
+counters), a metric store shared by the hosts
 that run the scheduler, and a dashboard metrics connection that scrapes it.
 With no gauges in the store the check costs one query and finds nothing.

@@ -17,6 +17,7 @@ rule types that matter most watch things that already mean something.
 | `new_issue` | A fingerprint nobody has seen starts firing |
 | `regression` | A resolved issue starts firing again |
 | `incident` | The correlator opened an incident |
+| `escalation` | An archived issue's volume escalated and it reopened |
 | `scheduled_task` | A scheduled task started missing, overrunning or failing, or the scheduler stopped |
 | `issue_spike` | A known issue's rate jumps against the window before |
 | `error_rate` | Share of requests answering 5xx, in % |
@@ -30,7 +31,7 @@ rule types that matter most watch things that already mean something.
 `telemetry-insights:alerts`: measure, compare, fire.
 
 **Event rules** (`new_issue`, `regression`, `incident`, `issue_spike`,
-`scheduled_task`) have
+`scheduled_task`, `escalation`) have
 nothing to measure on a schedule. They fire from `telemetry-insights:scan`
 when the event happens, once per pass — naming the first and counting the
 rest, because a rule exists so someone hears once, not once per

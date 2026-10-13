@@ -22,6 +22,46 @@ use Illuminate\Support\Carbon;
  */
 class IssueActions
 {
+    public function __construct(private readonly ?EscalationWatch $escalation = null) {}
+
+    /**
+     * Quiet until it gets worse. Learns the group's hourly volume over the
+     * previous week and reopens it only when it goes past that — see
+     * {@see EscalationWatch}. Error groups only: a scheduled-task issue
+     * already clears and returns by itself, precisely.
+     *
+     * @throws \InvalidArgumentException for a scheduled-task issue
+     */
+    public function archive(Issue $issue, ?Attribution $as = null): Issue
+    {
+        if ($issue->kind()->isScheduled()) {
+            throw new \InvalidArgumentException('Only error groups can be archived until escalating; a scheduled-task issue clears and returns on its own.');
+        }
+
+        $watch = $this->escalation ?? app(EscalationWatch::class);
+        $limits = $watch->learn($issue);
+        $as ??= new Attribution;
+
+        $issue->forceFill([
+            'status' => IssueStatus::Archived,
+            'archived_at' => Carbon::now(),
+            'escalation_spike_limit' => $limits->spike,
+            'escalation_burst_limit' => $limits->burst,
+            'resolved_at' => null,
+            'snoozed_until' => null,
+        ])->save();
+
+        $note = ucfirst($limits->describe($watch->sustainedHours())).'.';
+
+        $this->log($issue, IssueAction::Archived, new Attribution(
+            $as->source,
+            $as->actor,
+            $as->comment === null ? $note : $as->comment.' — '.$note,
+        ));
+
+        return $issue;
+    }
+
     /**
      * Believed fixed. Record the release it shipped in and a later
      * occurrence can say which fix it escaped.
@@ -62,13 +102,14 @@ class IssueActions
         ]);
     }
 
-    /** Back on the working list, whatever it was before. */
+    /** Back on the working list, whatever it was before. Clears any archive limits. */
     public function reopen(Issue $issue, ?Attribution $as = null): Issue
     {
         return $this->apply($issue, IssueAction::Reopened, $as, [
             'status' => IssueStatus::Open,
             'resolved_at' => null,
             'snoozed_until' => null,
+            'archived_at' => null,
         ]);
     }
 

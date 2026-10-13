@@ -138,6 +138,7 @@ it('leaves the classes a host needs to extend or fake unsealed', function (): vo
         'Issues/IssueLedger.php' => 'hosts override how issues are recorded',
         'Issues/SpikeDetector.php' => 'hosts choose a different baseline',
         'Issues/IncidentRecorder.php' => 'hosts override persistence',
+        'Issues/EscalationWatch.php' => 'hosts choose a different escalation baseline',
         'Issues/ScheduleLedger.php' => 'hosts override how scheduled-task issues are recorded',
         'Mcp/Tools/ChangeIssueTool.php' => 'abstract base of the write tools',
         'Mcp/Tools/LedgerTool.php' => 'abstract base of the agent tools; hosts add their own',
@@ -146,11 +147,13 @@ it('leaves the classes a host needs to extend or fake unsealed', function (): vo
         'Models/Incident.php' => 'Eloquent models are extended by hosts',
         'Models/Issue.php' => 'Eloquent models are extended by hosts',
         'Models/IssueEvent.php' => 'Eloquent models are extended by hosts',
+        'Models/ProfilingRun.php' => 'Eloquent models are extended by hosts',
         'Notify/Notifier.php' => 'FakeNotifier extends it; hosts may too',
         'Scan/Scanner.php' => 'hosts wrap the pass',
         'TelemetryInsightsServiceProvider.php' => 'providers are never final',
         'Ui/Panels/IncidentsTable.php' => 'panels are extended to re-scope them',
         'Ui/Panels/IssuesTable.php' => 'panels are extended to re-scope them',
+        'Ui/Panels/ProfilingTable.php' => 'panels are extended to re-scope them',
     ];
 
     $wronglySealed = [];

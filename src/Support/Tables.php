@@ -31,6 +31,11 @@ final class Tables
         return self::name('alert_events', 'telemetry_alert_events');
     }
 
+    public static function profilingRuns(): string
+    {
+        return self::name('profiling_runs', 'telemetry_profiling_runs');
+    }
+
     public static function issueEvents(): string
     {
         return self::name('issue_events', 'telemetry_issue_events');

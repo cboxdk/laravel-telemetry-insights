@@ -72,6 +72,43 @@ See [scheduled tasks](../core-concepts/scheduled-tasks.md).
 | `scheduled_tasks.max_failure_probes` | — | `20` | Streak reads per pass — this bounds the cost |
 | `scheduled_tasks.tasks` | — | `[]` | Per-task overrides, by name or `*` pattern |
 
+## Escalation
+
+See [archive until escalating](../core-concepts/issues.md#archive-until-escalating).
+
+| Key | Env | Default | |
+| --- | --- | --- | --- |
+| `escalation.baseline_days` | — | `7` | History learned from at archive time |
+| `escalation.spike_factor` | — | `3.0` | × the 95th-percentile hour |
+| `escalation.burst_factor` | — | `1.5` | × the worst hour |
+| `escalation.sustained_hours` | — | `2` | Hours over the spike limit before it escalates |
+| `escalation.min_volume` | `TELEMETRY_INSIGHTS_ESCALATION_MIN` | `10` | Floor for both limits |
+| `escalation.sample_limit` | — | `10000` | Records read when learning |
+
+## Stale issues
+
+| Key | Env | Default | |
+| --- | --- | --- | --- |
+| `stale.enabled` | `TELEMETRY_INSIGHTS_STALE_RESOLVE` | `true` | |
+| `stale.resolve_after_days` | `TELEMETRY_INSIGHTS_STALE_DAYS` | `14` | Quiet this long and an open error group is resolved |
+
+## Profiling
+
+See [profiling](../core-concepts/profiling.md).
+
+| Key | Env | Default | |
+| --- | --- | --- | --- |
+| `profiling.targets` | — | `[]` | Service → `url`, `secret` (and optional `path`) of its signed directive endpoint |
+| `profiling.timeout` | — | `5` | Seconds per directive request |
+| `profiling.rotation.enabled` | `TELEMETRY_INSIGHTS_PROFILING` | `false` | Schedules the rotation |
+| `profiling.rotation.routes` | `TELEMETRY_INSIGHTS_PROFILING_ROUTES` | `3` | Routes per pass |
+| `profiling.rotation.minutes` | `TELEMETRY_INSIGHTS_PROFILING_MINUTES` | `15` | How long each directive lasts |
+| `profiling.rotation.profile` | — | `true` | CPU-profile as well as keep |
+| `profiling.rotation.impact` | `TELEMETRY_INSIGHTS_PROFILING_IMPACT` | `total_time` | Or `p95_rate` |
+| `profiling.rotation.lookback` | — | `24h` | Window the impact is measured over |
+| `profiling.rotation.cooldown_hours` | `TELEMETRY_INSIGHTS_PROFILING_COOLDOWN` | `24` | A route profiled this recently is skipped |
+| `profiling.rotation.failed_cooldown_hours` | — | `1` | A route whose directive failed is retried after this |
+
 ## Agent tools
 
 See [agent tools](../extension-points/agent-tools.md).
@@ -89,6 +126,7 @@ See [agent tools](../extension-points/agent-tools.md).
 | `announce.regressions` | `TELEMETRY_INSIGHTS_ANNOUNCE_REGRESSIONS` | `true` | |
 | `announce.incidents` | `TELEMETRY_INSIGHTS_ANNOUNCE_INCIDENTS` | `true` | |
 | `announce.scheduled_tasks` | `TELEMETRY_INSIGHTS_ANNOUNCE_SCHEDULED_TASKS` | `true` | |
+| `announce.escalations` | `TELEMETRY_INSIGHTS_ANNOUNCE_ESCALATIONS` | `true` | An archived issue that escalated |
 | `announce.recoveries` | `TELEMETRY_INSIGHTS_ANNOUNCE_RECOVERIES` | `true` | A scheduled-task issue that cleared, when the problem was announced |
 
 Off means recorded silently, not ignored.
@@ -100,6 +138,7 @@ Off means recorded silently, not ignored.
 | `schedule.scan` | `TELEMETRY_INSIGHTS_SCAN_CRON` | `*/5 * * * *` | |
 | `schedule.alerts` | `TELEMETRY_INSIGHTS_ALERTS_CRON` | `*/5 * * * *` | |
 | `schedule.digest` | `TELEMETRY_INSIGHTS_DIGEST_CRON` | `0 8 * * 1` | |
+| `schedule.profiling` | `TELEMETRY_INSIGHTS_PROFILING_CRON` | `0 */4 * * *` | Only while the rotation is enabled |
 
 Set one to an empty string to schedule that job yourself.
 
@@ -112,5 +151,6 @@ Set one to an empty string to schedule that job yourself.
 | `tables.alert_rules` | `telemetry_alert_rules` |
 | `tables.alert_events` | `telemetry_alert_events` |
 | `tables.issue_events` | `telemetry_issue_events` |
+| `tables.profiling_runs` | `telemetry_profiling_runs` |
 
 Renaming a table here is enough; the migration reads the same config.

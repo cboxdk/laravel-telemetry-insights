@@ -28,6 +28,7 @@ the status, nothing else.
 | `resolved` | Believed fixed. A later occurrence reopens it |
 | `ignored` | Known, deliberately not worth acting on. Never notifies |
 | `snoozed` | Quiet until `snoozed_until`, then open again |
+| `archived` | Quiet until it **escalates** — see below. Error groups only |
 
 A lapsed snooze is open again the moment it lapses — `effectiveStatus()`
 works it out on read, so nothing has to sweep the table.
@@ -86,6 +87,7 @@ php artisan telemetry-insights:issues                       # the working list
 php artisan telemetry-insights:issue resolve aaaa0000 --release=v2.4.1
 php artisan telemetry-insights:issue snooze  aaaa0000 --until="3 days"
 php artisan telemetry-insights:issue ignore  aaaa0000
+php artisan telemetry-insights:issue archive aaaa0000
 php artisan telemetry-insights:issue assign  aaaa0000 --to=sylvester
 php artisan telemetry-insights:issue reopen  aaaa0000 --by=sylvester --comment="Still happening"
 ```
@@ -132,6 +134,45 @@ so you can resolve an issue where you read it. They are offers: the
 endpoint still checks `manageTelemetryUi`, so a viewer who can see an issue
 cannot close it. Build your own screen on the
 [HTTP API](../extension-points/http-api.md) when you want more.
+
+## Archive until escalating
+
+Some error groups are known, low-grade and not worth anyone's morning —
+until they get worse. Ignoring one hides it for good; snoozing brings it
+back on a date that has nothing to do with it. Archiving keeps it quiet
+**until its volume escalates** past what it did before you archived it.
+
+At archive time the group's hourly volume over the previous week
+(`escalation.baseline_days`) is read once from the logs store, and two
+limits are learned:
+
+- **spike limit** — the 95th-percentile hour × `spike_factor` (3). Over it
+  for `sustained_hours` (2) running is a real, lasting rise.
+- **burst limit** — the worst hour × `burst_factor` (1.5). Over it in any
+  single hour is something the group has never done.
+
+The two exist because "more errors" comes in two shapes. A nightly job
+that throws sixty times at 02:00 has a low normal hour and a high peak; its
+next 02:00 is one hour, under the burst limit, and reopens nothing. Neither
+limit goes below `min_volume` (10). A store that does not answer at archive
+time gives the floor limits, and the history says so.
+
+The check costs one bounded read, and only for an archived group the scan
+just saw fire. An escalation reopens the issue, writes "Escalated" to its
+history with the numbers, and is announced (`announce.escalations`) and
+fires `escalation` rules. Browser exceptions are counted from traces, not
+logs, so an archived frontend group stays archived until someone reopens
+it. Scheduled-task issues cannot be archived — they already clear and
+return on their own, precisely.
+
+## Stale issues
+
+An open error group with no occurrence for `stale.resolve_after_days` (14;
+7 and 30 are the other sensible values) is resolved by the scan, recorded
+as automatic in its history ("No occurrence for 14 days."). A later
+occurrence reopens it as a regression through the usual path. Ignored,
+snoozed and archived issues are left alone: they are a decision someone
+made. `stale.enabled = false` turns it off.
 
 ## Spikes
 

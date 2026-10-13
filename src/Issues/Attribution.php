@@ -22,6 +22,15 @@ final readonly class Attribution
         public ?string $comment = null,
     ) {}
 
+    /**
+     * Whether a name belongs to the system. A caller may not claim it: the
+     * history would then say a person's decision was automatic.
+     */
+    public static function reserved(?string $actor): bool
+    {
+        return $actor !== null && strcasecmp(trim($actor), self::SCAN_ACTOR) === 0;
+    }
+
     public static function scan(?string $comment = null): self
     {
         return new self(ActionSource::Scan, self::SCAN_ACTOR, $comment);
